@@ -94,6 +94,13 @@ export default function ScanForm({ initialUrl = '', onScanComplete, compact = fa
       }
 
       const reportId = data.report.assessmentId;
+      try {
+        sessionStorage.setItem(`wc_report_${reportId}`, JSON.stringify(data.report));
+        sessionStorage.setItem('wc_latest_report', JSON.stringify(data.report));
+      } catch {
+        // ignore
+      }
+
       if (onScanComplete) {
         onScanComplete(reportId);
       } else {
