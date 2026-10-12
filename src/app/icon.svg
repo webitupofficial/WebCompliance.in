@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Neo-Brutalist Frame -->
+  <rect width="32" height="32" rx="4" fill="#0A0A0A"/>
+  <rect x="1.5" y="1.5" width="29" height="29" rx="3" fill="none" stroke="#2D313A" stroke-width="1"/>
+  
+  <!-- Cobalt Corner Bracket Accents -->
+  <path d="M4 8 V4 H8" stroke="#2547FF" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  <path d="M24 4 H28 V8" stroke="#2547FF" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  <path d="M28 24 V28 H24" stroke="#2547FF" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  <path d="M8 28 H4 V24" stroke="#2547FF" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  
+  <!-- Stylized 'W' Compliance Waveform in Acid Lime -->
+  <path d="M7 11 L10.5 21 L13.5 14 L16 19 L18.5 14 L21.5 21 L25 11" fill="none" stroke="#C7F36B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Cyber-Intelligence Radar/Verification Signal -->
+  <circle cx="16" cy="8" r="1.5" fill="#20B8FF"/>
+</svg>
