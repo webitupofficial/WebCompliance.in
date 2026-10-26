@@ -16,17 +16,18 @@ async function scanSite(targetUrl, categoryLabel) {
     }),
   });
   const orderData = await createRes.json();
-  if (!orderData.success) {
+  const orderId = orderData.order_id || orderData.orderId;
+  if (!orderId) {
     console.error('Failed to create order:', orderData);
     return;
   }
 
   // 2. Verify payment & issue token
-  const verifyRes = await fetch(`${BASE_URL}/api/payment/verify`, {
+  const verifyRes = await fetch(`${BASE_URL}/api/verify-payment`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      order_id: orderData.orderId,
+      order_id: orderId,
       payment_id: `pay_test_${Date.now()}`,
       signature: 'valid_test_signature_hex_representation_for_test_mode',
     }),

@@ -53,8 +53,8 @@ async function runTests() {
   console.log(`1.4 POST /api/scan (no token): HTTP ${resScanNoToken.status}`, scanNoTokenBody);
   console.assert(resScanNoToken.status === 401, 'Should return 401 Unauthorized');
 
-  // 1.5 POST /api/payment/verify with tampered signature
-  const resTampered = await fetch(`${BASE_URL}/api/payment/verify`, {
+  // 1.5 POST /api/verify-payment with tampered signature
+  const resTampered = await fetch(`${BASE_URL}/api/verify-payment`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -64,11 +64,11 @@ async function runTests() {
     }),
   });
   const tamperedBody = await resTampered.json();
-  console.log(`1.5 POST /api/payment/verify (tampered signature): HTTP ${resTampered.status}`, tamperedBody);
+  console.log(`1.5 POST /api/verify-payment (tampered signature): HTTP ${resTampered.status}`, tamperedBody);
   console.assert(resTampered.status >= 400, 'Should reject with client error');
 
   // 1.6 Client-side change to amount in create-order
-  const resAmountTamper = await fetch(`${BASE_URL}/api/payment/create-order`, {
+  const resAmountTamper = await fetch(`${BASE_URL}/api/create-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -79,7 +79,7 @@ async function runTests() {
     }),
   });
   const amountBody = await resAmountTamper.json();
-  console.log(`1.6 POST /api/payment/create-order (client passes ₹1): HTTP ${resAmountTamper.status}`);
+  console.log(`1.6 POST /api/create-order (client passes ₹1): HTTP ${resAmountTamper.status}`);
   console.log(`    Order created amount: ₹${amountBody.amountInr} (${amountBody.amount} paise) — client amount was ignored!`);
   console.assert(amountBody.amountInr === 999, 'Amount must strictly follow server CHECK_PRICE_INR');
 
@@ -94,10 +94,11 @@ async function runTests() {
     'http://169.254.169.254',
     'http://10.0.0.1',
     'http://192.168.1.1',
+    'http://localtest.me', // Domain resolving to 127.0.0.1 (private loopback via DNS)
   ];
 
   for (const target of targetsToBlock) {
-    const resBlock = await fetch(`${BASE_URL}/api/payment/create-order`, {
+    const resBlock = await fetch(`${BASE_URL}/api/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -116,7 +117,7 @@ async function runTests() {
   console.log('\n--- TEST GROUP 3: PAYMENT, VERIFICATION, TOKEN GATING & SCAN FLOW ---');
 
   // Step 3.1: Create Order
-  const createOrderRes = await fetch(`${BASE_URL}/api/payment/create-order`, {
+  const createOrderRes = await fetch(`${BASE_URL}/api/create-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -132,7 +133,7 @@ async function runTests() {
   const testPaymentId = `pay_test_${Date.now()}`;
   const testSignature = 'valid_test_signature_hex_representation_for_test_mode';
 
-  const verifyRes = await fetch(`${BASE_URL}/api/payment/verify`, {
+  const verifyRes = await fetch(`${BASE_URL}/api/verify-payment`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
