@@ -18,6 +18,23 @@ export default function DisclaimerPage() {
       ]} />
 
       <article className="container-narrow" style={{ padding: 0 }}>
+        {/* Draft Notice Banner */}
+        <div
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '4px',
+            padding: '0.875rem 1.25rem',
+            marginBottom: '2rem',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            color: '#92400e',
+          }}
+        >
+          [DRAFT – PREM TO REVIEW]
+        </div>
+
         <div style={{ marginBottom: '2rem', borderBottom: '2px solid var(--color-ink)', paddingBottom: '1rem' }}>
           <div className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--color-amber)', fontWeight: 800 }}>
             STATUTORY POSITIONING & BOUNDARY NOTICE

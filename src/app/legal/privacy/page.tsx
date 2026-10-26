@@ -17,6 +17,23 @@ export default function PrivacyNoticePage() {
       ]} />
 
       <article className="container-narrow" style={{ padding: 0 }}>
+        {/* Draft Notice Banner */}
+        <div
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '4px',
+            padding: '0.875rem 1.25rem',
+            marginBottom: '2rem',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            color: '#92400e',
+          }}
+        >
+          [DRAFT – PREM TO REVIEW]
+        </div>
+
         {/* Top Header & Eighth Schedule Multilingual Selector */}
         <div style={{ marginBottom: '2rem', borderBottom: '2px solid var(--color-ink)', paddingBottom: '1.25rem' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -32,7 +49,7 @@ export default function PrivacyNoticePage() {
 
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
             <div className="font-mono" style={{ fontSize: '0.8125rem', color: 'var(--color-slate)' }}>
-              DATA FIDUCIARY: WEBCOMPLIANCE.IN // EFFECTIVE: 12 OCTOBER 2026 // REVISION: 2026.2
+              DATA FIDUCIARY: WEBCOMPLIANCE.IN // EFFECTIVE: OCTOBER 2026 // REVISION: 2026.3
             </div>
 
             {/* Language Switcher under Eighth Schedule mandate */}
@@ -273,10 +290,10 @@ export default function PrivacyNoticePage() {
             </div>
 
             <h2 style={{ fontSize: '1.35rem', fontWeight: 800, marginTop: '1.75rem', marginBottom: '0.5rem' }}>
-              7. Third-Party Data Processors
+              7. Third-Party Data Processors &amp; Service Providers
             </h2>
             <p>
-              Under Section 8(1) and Section 8(2) of the DPDP Act, 2023, data fiduciaries may engage data processors under valid contract. WebCompliance engages the following sub-processor for web operations:
+              Under Section 8(1) and Section 8(2) of the DPDP Act, 2023, data fiduciaries may engage data processors under valid contract. WebCompliance engages the following specialized processors for our digital operations:
             </p>
             <div style={{ overflowX: 'auto', margin: '1rem 0' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', textAlign: 'left' }}>
@@ -285,19 +302,44 @@ export default function PrivacyNoticePage() {
                     <th style={{ padding: '0.5rem' }}>PROCESSOR</th>
                     <th style={{ padding: '0.5rem' }}>DATA PROCESSED</th>
                     <th style={{ padding: '0.5rem' }}>PURPOSE</th>
-                    <th style={{ padding: '0.5rem' }}>SAFEGUARDS</th>
+                    <th style={{ padding: '0.5rem' }}>RETENTION &amp; SAFEGUARDS</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
                     <td style={{ padding: '0.5rem', fontWeight: 700 }}>Formspree Inc.</td>
-                    <td style={{ padding: '0.5rem' }}>Name, firm, email, phone, message</td>
-                    <td style={{ padding: '0.5rem' }}>Transmitting and routing contact and partnership enquiries to enable replying to you</td>
-                    <td style={{ padding: '0.5rem' }}>Encrypted in transit (TLS 1.3), strict processing purpose limitation</td>
+                    <td style={{ padding: '0.5rem' }}>Name, firm, email, phone, inquiry message; order alerts (order ID, URL, email, amount)</td>
+                    <td style={{ padding: '0.5rem' }}>Routing homepage enquiries and notifying team of check orders</td>
+                    <td style={{ padding: '0.5rem' }}>TLS 1.3 encrypted, no payment credentials, purpose-bound</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
+                    <td style={{ padding: '0.5rem', fontWeight: 700 }}>Razorpay Software Pvt. Ltd.</td>
+                    <td style={{ padding: '0.5rem' }}>Billing email, payment transaction IDs, amount</td>
+                    <td style={{ padding: '0.5rem' }}>Payment gateway processing for paid website checks</td>
+                    <td style={{ padding: '0.5rem' }}>PCI-DSS Level 1 compliant gateway; WebCompliance never receives or stores full card/bank credentials</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
+                    <td style={{ padding: '0.5rem', fontWeight: 700 }}>Resend Inc. (Email Provider)</td>
+                    <td style={{ padding: '0.5rem' }}>Recipient email address, report link, target website URL</td>
+                    <td style={{ padding: '0.5rem' }}>Transactional email delivery of generated check reports</td>
+                    <td style={{ padding: '0.5rem' }}>TLS encryption in transit, strict purpose limitation</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
+                    <td style={{ padding: '0.5rem', fontWeight: 700 }}>Cloud Hosting &amp; Database</td>
+                    <td style={{ padding: '0.5rem' }}>Target domain, work email, company name, single-use token hash, scan report JSON</td>
+                    <td style={{ padding: '0.5rem' }}>Application hosting, token authentication, and report retrieval</td>
+                    <td style={{ padding: '0.5rem' }}>Automatic 90-day retention purge; personal data redacted or deleted after 90 days</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, marginTop: '1.75rem', marginBottom: '0.5rem' }}>
+              8. Retention Policy for Website Privacy Checks
+            </h2>
+            <p>
+              Data associated with the paid website privacy check (target URL, contact email, optional company name, order metadata, and observable scan findings) is <strong>retained for exactly 90 days</strong> from the date of scan generation. After 90 days, personal identifiers are automatically purged or redacted from active application records.
+            </p>
           </div>
         )}
       </article>

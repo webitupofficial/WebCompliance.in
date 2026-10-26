@@ -56,6 +56,8 @@ export default function Footer() {
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem' }}>
               <li><Link href="/legal/privacy">Privacy Notice</Link></li>
               <li><Link href="/legal/terms">Terms of Service</Link></li>
+              <li><Link href="/legal/refunds">Refund &amp; Cancellation Policy</Link></li>
+              <li><Link href="/legal/delivery">Delivery Policy</Link></li>
               <li><Link href="/legal/disclaimer">Regulatory Disclaimer</Link></li>
               <li><Link href="/rights">Data Principal Rights Portal</Link></li>
               <li>

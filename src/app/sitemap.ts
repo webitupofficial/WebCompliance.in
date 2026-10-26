@@ -25,6 +25,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/rights',
     '/legal/privacy',
     '/legal/terms',
+    '/legal/refunds',
+    '/legal/delivery',
     '/legal/disclaimer'
   ];
 

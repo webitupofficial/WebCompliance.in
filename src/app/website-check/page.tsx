@@ -348,10 +348,18 @@ export default function WebsiteCheckPage() {
                       I am authorised to request a check of this website and agree to the{' '}
                       <Link href="/legal/terms" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
                         Terms
-                      </Link>{' '}
-                      and{' '}
+                      </Link>
+                      ,{' '}
                       <Link href="/legal/privacy" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
                         Privacy Notice
+                      </Link>
+                      ,{' '}
+                      <Link href="/legal/refunds" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
+                        Refund Policy
+                      </Link>
+                      , and{' '}
+                      <Link href="/legal/delivery" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
+                        Delivery Policy
                       </Link>.
                     </span>
                   </label>
