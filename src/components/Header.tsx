@@ -1,40 +1,97 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 
 export default function Header() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
-    <header className="header-nav">
-      <div className="header-top-bar">
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>SPECIFICATION: DPDP ACT 2023 & MEITY RULES 2025 ALIGNED METHODOLOGY</span>
-          <span className="desktop-only">SARAL NOTICE & SECTION 6 CONSENT ENGINE ACTIVE</span>
-        </div>
-      </div>
-      
-      <div className="container header-inner">
-        <Link href="/" className="logo">
-          <span>WEBCOMPLIANCE</span>
-          <span className="logo-tag">.IN</span>
+    <header className="site-header">
+      <div className="container header-container">
+        <Link href="/" className="wordmark" onClick={() => setMobileMenuOpen(false)}>
+          WebCompliance.in
         </Link>
 
-        <nav className="nav-links">
-          <Link href="/website-assessment" className="nav-link">Scanner</Link>
-          <Link href="/how-it-works" className="nav-link">Methodology</Link>
-          <Link href="/in-depth-assessment" className="nav-link">Expert Review</Link>
-          <Link href="/resources" className="nav-link">Resources</Link>
-          <Link href="/rights" className="nav-link" style={{ color: 'var(--color-cobalt)', fontWeight: 800 }}>Rights Portal</Link>
-          <Link href="/pricing" className="nav-link">Pricing</Link>
-          <Link href="/about" className="nav-link">About</Link>
+        {/* Desktop Navigation */}
+        <nav className="nav-menu" aria-label="Main Navigation">
+          <Link href="/#how-it-works" className="nav-item">How it works</Link>
+          <Link href="/#for-ca-firms" className="nav-item">For CA firms</Link>
+          <Link href="/#sample-report" className="nav-item">Sample report</Link>
+          <Link href="/#about" className="nav-item">About</Link>
+          <Link href="/#contact" className="nav-item">Contact</Link>
         </nav>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <Link href="/website-assessment" className="btn btn-lime btn-sm">
-            Scan My Website
+        {/* Header CTA Button */}
+        <div className="header-actions">
+          <Link href="/#contact" className="btn btn-primary btn-sm">
+            Book a 10-min demo
           </Link>
-          <Link href="/in-depth-assessment" className="btn btn-dark btn-sm desktop-only">
-            Request Deep Review
-          </Link>
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {mobileMenuOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </>
+              )}
+            </svg>
+          </button>
         </div>
       </div>
+
+      {/* Mobile Dropdown Menu */}
+      {mobileMenuOpen && (
+        <div className="mobile-dropdown">
+          <Link
+            href="/#how-it-works"
+            className="mobile-nav-link"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            How it works
+          </Link>
+          <Link
+            href="/#for-ca-firms"
+            className="mobile-nav-link"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            For CA firms
+          </Link>
+          <Link
+            href="/#sample-report"
+            className="mobile-nav-link"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Sample report
+          </Link>
+          <Link
+            href="/#about"
+            className="mobile-nav-link"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            About
+          </Link>
+          <Link
+            href="/#contact"
+            className="mobile-nav-link"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Contact
+          </Link>
+        </div>
+      )}
     </header>
   );
 }
