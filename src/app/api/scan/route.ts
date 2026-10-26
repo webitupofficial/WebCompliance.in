@@ -123,20 +123,55 @@ export async function POST(request: NextRequest) {
         report_id: liveReport.assessmentId,
       });
 
+      // Dispatch transactional report email (non-blocking)
+      const siteOrigin =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (request.headers.get('host')
+          ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('host')}`
+          : 'https://webcompliance.in');
+
+      import('@/lib/email').then(({ sendReportEmail }) => {
+        sendReportEmail({
+          recipientEmail: order.email,
+          targetUrl: liveReport.website,
+          reportId: liveReport.assessmentId,
+          reportUrl: `${siteOrigin}/report/${liveReport.assessmentId}`,
+          gapCount: liveReport.readinessIndicator.observableGapsCount,
+          totalChecks: liveReport.readinessIndicator.totalChecks,
+        }).catch(() => {});
+      });
+
       return NextResponse.json({ success: true, report: liveReport });
     } catch (scanErr: unknown) {
       console.error('Scan execution error:', scanErr);
+      const errMsg = scanErr instanceof Error ? scanErr.message : 'Unknown scan error';
+
       // Mark order as refund_due if scan fails after payment
       updateOrder(order.order_id, {
         status: 'refund_due',
       });
 
+      // Alert Prem via Formspree (do not auto-refund)
+      const formId = process.env.NEXT_PUBLIC_FORMSPREE_ID || 'mbgggawa';
+      fetch(`https://formspree.io/f/${formId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          _subject: `ALERT: Scan failed (refund due) for Order ${order.order_id}`,
+          form_source: 'scan-failure-refund-due',
+          order_id: order.order_id,
+          website_url: order.url,
+          customer_email: order.email,
+          amount_inr: order.amount,
+          error_detail: errMsg,
+        }),
+      }).catch(() => {});
+
       return NextResponse.json(
         {
           error:
-            scanErr instanceof Error
-              ? scanErr.message
-              : 'Could not complete scan on target website. An alert has been flagged for review.',
+            'We were unable to complete the automated scan of your website. Your order has been marked for review and refund. Prem Singh has been alerted at prem.webcompliance@gmail.com and will contact you directly within one working day.',
+          status: 'refund_due',
         },
         { status: 502 }
       );
