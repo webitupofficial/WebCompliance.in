@@ -1,56 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useForm, ValidationError } from '@formspree/react';
+
+const FORMSPREE_ID = process.env.NEXT_PUBLIC_FORMSPREE_ID || 'mbgggawa';
 
 export default function ContactForm() {
-  const [name, setName] = useState('');
-  const [firm, setFirm] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [state, handleSubmit] = useForm(FORMSPREE_ID);
   const [inquiryType, setInquiryType] = useState('CA / Compliance Firm Partnership');
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  // Handle URL hash / query parameter pre-selection and custom event triggers
+  useEffect(() => {
+    const handleUrlParams = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      const typeParam = params.get('type') || (hash.includes('type=demo') ? 'demo' : hash.includes('type=partnership') ? 'partnership' : null);
 
-    try {
-      const res = await fetch('/api/inquiry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          workEmail: email.trim(),
-          companyName: firm.trim(),
-          websiteUrl: '',
-          businessType: inquiryType,
-          inquiryDetails: `${phone ? `Phone: ${phone.trim()}\n` : ''}${message.trim()}`,
-          consentGiven: true,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit inquiry.');
+      if (typeParam === 'demo') {
+        setInquiryType('10-Minute Software Demo');
+      } else if (typeParam === 'partnership') {
+        setInquiryType('CA / Compliance Firm Partnership');
+      } else if (typeParam === 'audit') {
+        setInquiryType('B2B Startup / Direct Audit');
       }
-      setSubmitted(true);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  if (submitted) {
+    handleUrlParams();
+
+    const handleCustomType = (e: CustomEvent<{ type: string }>) => {
+      if (e.detail?.type === 'demo') {
+        setInquiryType('10-Minute Software Demo');
+      } else if (e.detail?.type === 'partnership') {
+        setInquiryType('CA / Compliance Firm Partnership');
+      } else if (e.detail?.type === 'audit') {
+        setInquiryType('B2B Startup / Direct Audit');
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlParams);
+    window.addEventListener('hashchange', handleUrlParams);
+    window.addEventListener('wc_set_inquiry_type' as unknown as string, handleCustomType as EventListener);
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlParams);
+      window.removeEventListener('hashchange', handleUrlParams);
+      window.removeEventListener('wc_set_inquiry_type' as unknown as string, handleCustomType as EventListener);
+    };
+  }, []);
+
+  if (state.succeeded) {
     return (
       <div
         style={{
@@ -63,10 +63,10 @@ export default function ContactForm() {
       >
         <div style={{ fontSize: '1.75rem', color: '#15803D', marginBottom: '0.5rem' }}>✓</div>
         <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534', marginBottom: '0.5rem' }}>
-          Thank you for reaching out
+          Thanks, we&apos;ll reply within one working day.
         </h3>
         <p style={{ fontSize: '0.9375rem', color: '#15803D', lineHeight: '1.5', maxWidth: '480px', margin: '0 auto' }}>
-          Prem Singh will personally reply to {email} within one business day to coordinate your walkthrough or audit scope.
+          Your enquiry has been received. Prem Singh will get back to you directly.
         </p>
       </div>
     );
@@ -74,7 +74,20 @@ export default function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-      {error && (
+      {/* Hidden Fields for Formspree Configuration */}
+      <input type="hidden" name="_subject" value={`WebCompliance.in enquiry: ${inquiryType}`} />
+      <input type="hidden" name="form_source" value="homepage-contact" />
+      {/* Honeypot field for bot spam protection */}
+      <input
+        type="text"
+        name="_gotcha"
+        style={{ display: 'none' }}
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+      />
+
+      {state.errors && state.errors.getFormErrors().length > 0 && (
         <div
           style={{
             background: '#FEF2F2',
@@ -86,79 +99,87 @@ export default function ContactForm() {
             marginBottom: '1rem',
           }}
         >
-          {error}
+          Something went wrong sending your message. Please try again or email us directly at{' '}
+          <a
+            href="mailto:prem.webcompliance@gmail.com"
+            style={{ color: '#B91C1C', textDecoration: 'underline', fontWeight: 600 }}
+          >
+            prem.webcompliance@gmail.com
+          </a>
+          .
         </div>
       )}
 
       <div className="grid-2" style={{ gap: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="contact-name" className="form-label">
+          <label htmlFor="name" className="form-label">
             Your name *
           </label>
           <input
-            id="contact-name"
+            id="name"
+            name="name"
             type="text"
             required
             className="form-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
             placeholder="Prem Kumar"
           />
+          <ValidationError prefix="Name" field="name" errors={state.errors} style={{ color: '#B91C1C', fontSize: '0.75rem', marginTop: '0.25rem' }} />
         </div>
 
         <div className="form-group">
-          <label htmlFor="contact-firm" className="form-label">
+          <label htmlFor="firm" className="form-label">
             Firm or company name *
           </label>
           <input
-            id="contact-firm"
+            id="firm"
+            name="firm"
             type="text"
             required
             className="form-input"
-            value={firm}
-            onChange={(e) => setFirm(e.target.value)}
             placeholder="Sharma & Associates / Acme Corp"
           />
+          <ValidationError prefix="Firm" field="firm" errors={state.errors} style={{ color: '#B91C1C', fontSize: '0.75rem', marginTop: '0.25rem' }} />
         </div>
       </div>
 
       <div className="grid-2" style={{ gap: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="contact-email" className="form-label">
+          <label htmlFor="email" className="form-label">
             Work email *
           </label>
           <input
-            id="contact-email"
+            id="email"
+            name="email"
             type="email"
             required
             className="form-input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             placeholder="partner@yourfirm.in"
           />
+          <ValidationError prefix="Email" field="email" errors={state.errors} style={{ color: '#B91C1C', fontSize: '0.75rem', marginTop: '0.25rem' }} />
         </div>
 
         <div className="form-group">
-          <label htmlFor="contact-phone" className="form-label">
-            Phone / WhatsApp
+          <label htmlFor="phone" className="form-label">
+            Phone (optional)
           </label>
           <input
-            id="contact-phone"
+            id="phone"
+            name="phone"
             type="tel"
             className="form-input"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
             placeholder="+91 98765 43210"
           />
+          <ValidationError prefix="Phone" field="phone" errors={state.errors} style={{ color: '#B91C1C', fontSize: '0.75rem', marginTop: '0.25rem' }} />
         </div>
       </div>
 
       <div className="form-group">
-        <label htmlFor="contact-type" className="form-label">
+        <label htmlFor="inquiry_type" className="form-label">
           Inquiry type
         </label>
         <select
-          id="contact-type"
+          id="inquiry_type"
+          name="inquiry_type"
           className="form-select"
           value={inquiryType}
           onChange={(e) => setInquiryType(e.target.value)}
@@ -166,22 +187,23 @@ export default function ContactForm() {
           <option value="CA / Compliance Firm Partnership">CA / Compliance Firm Partnership</option>
           <option value="B2B Startup / Direct Audit">B2B Startup / Direct Audit</option>
           <option value="10-Minute Software Demo">10-Minute Software Demo</option>
-          <option value="General Inquiry">General Question</option>
+          <option value="General Question">General Question</option>
         </select>
+        <ValidationError prefix="Inquiry Type" field="inquiry_type" errors={state.errors} style={{ color: '#B91C1C', fontSize: '0.75rem', marginTop: '0.25rem' }} />
       </div>
 
       <div className="form-group">
-        <label htmlFor="contact-msg" className="form-label">
-          Message or details
+        <label htmlFor="message" className="form-label">
+          Message
         </label>
         <textarea
-          id="contact-msg"
+          id="message"
+          name="message"
           rows={3}
           className="form-textarea"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
           placeholder="Tell us about your client base, current compliance setup, or timeline..."
         />
+        <ValidationError prefix="Message" field="message" errors={state.errors} style={{ color: '#B91C1C', fontSize: '0.75rem', marginTop: '0.25rem' }} />
       </div>
 
       <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: '1.25rem', lineHeight: '1.4' }}>
@@ -194,11 +216,11 @@ export default function ContactForm() {
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={state.submitting}
         className="btn btn-primary"
         style={{ width: '100%', padding: '0.75rem 1.5rem', fontSize: '0.9375rem' }}
       >
-        {loading ? 'Sending inquiry...' : 'Send message →'}
+        {state.submitting ? 'Sending enquiry...' : 'Send message →'}
       </button>
     </form>
   );

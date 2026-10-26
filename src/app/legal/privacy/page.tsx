@@ -264,12 +264,39 @@ export default function PrivacyNoticePage() {
               <div style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
                 <div><strong>Designation:</strong> Data Protection &amp; Grievance Officer</div>
                 <div><strong>Official Email:</strong> <a href="mailto:grievance@webcompliance.in" style={{ color: 'var(--color-cobalt)', fontWeight: 700 }}>grievance@webcompliance.in</a></div>
-                <div><strong>Mailing Address:</strong> WebCompliance Operations, Cyber City, Gurugram, Haryana / Bangalore, India</div>
+                <div><strong>General / Founder Inquiries:</strong> <a href="mailto:prem.webcompliance@gmail.com" style={{ color: 'var(--color-cobalt)' }}>prem.webcompliance@gmail.com</a></div>
                 <div><strong>Response SLA:</strong> Acknowledged within 24 hours; resolved within statutory turnaround times.</div>
               </div>
               <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #DDD', fontSize: '0.8125rem', color: '#4B5563' }}>
                 <strong>Right to Escalate to the Data Protection Board of India (DPBI):</strong> If you are not satisfied with the resolution provided by our Grievance Officer, you have the statutory right under Section 13(3) to file a complaint directly with the Data Protection Board of India.
               </div>
+            </div>
+
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, marginTop: '1.75rem', marginBottom: '0.5rem' }}>
+              7. Third-Party Data Processors
+            </h2>
+            <p>
+              Under Section 8(1) and Section 8(2) of the DPDP Act, 2023, data fiduciaries may engage data processors under valid contract. WebCompliance engages the following sub-processor for web operations:
+            </p>
+            <div style={{ overflowX: 'auto', margin: '1rem 0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#FAF8F2', borderBottom: '2px solid #000' }} className="font-mono">
+                    <th style={{ padding: '0.5rem' }}>PROCESSOR</th>
+                    <th style={{ padding: '0.5rem' }}>DATA PROCESSED</th>
+                    <th style={{ padding: '0.5rem' }}>PURPOSE</th>
+                    <th style={{ padding: '0.5rem' }}>SAFEGUARDS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
+                    <td style={{ padding: '0.5rem', fontWeight: 700 }}>Formspree Inc.</td>
+                    <td style={{ padding: '0.5rem' }}>Name, firm, email, phone, message</td>
+                    <td style={{ padding: '0.5rem' }}>Transmitting and routing contact and partnership enquiries to enable replying to you</td>
+                    <td style={{ padding: '0.5rem' }}>Encrypted in transit (TLS 1.3), strict processing purpose limitation</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         )}
