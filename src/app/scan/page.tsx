@@ -3,8 +3,8 @@ import Link from 'next/link';
 import ScanForm from '@/components/ScanForm';
 
 export const metadata: Metadata = {
-  title: 'Free website privacy check | WebCompliance.in',
-  description: 'Free preliminary check of your public website notices, forms, and third-party trackers. Safe and non-intrusive.',
+  title: 'Website privacy check | WebCompliance.in',
+  description: 'Preliminary check of your public website notices, forms, and third-party trackers. Safe and non-intrusive.',
   alternates: {
     canonical: 'https://webcompliance.in/scan',
   },
@@ -21,10 +21,10 @@ export default function ScanPage() {
             </Link>
           </div>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.02em' }}>
-            Free website privacy check
+            Website privacy check
           </h1>
           <p style={{ fontSize: '1.0625rem', color: 'var(--color-text-body)', lineHeight: '1.6' }}>
-            A free, preliminary scan of your public website. We check observable privacy notices, contact form disclosures, third-party analytics trackers, and cookie signals.
+            A preliminary check of what is publicly visible on your website. We check observable privacy notices, contact form disclosures, third-party analytics trackers, and cookie signals.
           </p>
         </div>
 
@@ -37,7 +37,7 @@ export default function ScanPage() {
         <div className="grid-2" style={{ gap: '1.5rem', marginBottom: '2.5rem' }}>
           <div className="card-subtle">
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-              What this free check inspects
+              What this check inspects
             </h3>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.875rem', color: 'var(--color-text-body)' }}>
               <li>✓ Public privacy notice links on primary landing pages</li>

@@ -229,7 +229,7 @@ export default function HomePage() {
                 Human-reviewed findings, scored by risk
               </h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--color-text-body)', lineHeight: '1.6' }}>
-                Every gap is examined, risk-scored, and signed off by human auditor Prem Singh. No automated AI hallucinations or generic checklists.
+                Every gap is examined, risk-scored, and signed off by human auditor Prem Singh. No AI-generated findings or generic checklists.
               </p>
             </div>
 
@@ -319,7 +319,7 @@ export default function HomePage() {
                 Consent notices
               </h4>
               <p style={{ fontSize: '0.875rem', color: 'var(--color-text-body)', margin: 0 }}>
-                Whether notices are itemized, present prior to data collection, available in 22 scheduled languages where required, and feature straightforward consent withdrawal.
+                Whether notices are itemized, present prior to data collection, available in English or any language in the Eighth Schedule of the Constitution, as the Data Principal chooses, and feature straightforward consent withdrawal.
               </p>
             </div>
 
@@ -506,7 +506,7 @@ export default function HomePage() {
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                   <span style={{ color: '#15803D', fontWeight: 700, fontSize: '1.1rem' }}>✓</span>
                   <div>
-                    <strong>Revenue share per audit:</strong> Transparent partner economics with predictable fee structures and healthy margin per audit engagement.
+                    <strong>Revenue share per audit:</strong> terms discussed on a call.
                   </div>
                 </div>
 
@@ -749,7 +749,7 @@ export default function HomePage() {
 
                 <div style={{ fontSize: '0.96875rem', lineHeight: '1.7', color: 'var(--color-text-body)' }}>
                   <p>
-                    Founded by Prem Singh, law student at the University of Jammu. Prem focuses on Indian data protection jurisprudence, cybersecurity governance, and digital compliance law.
+                    Founded by Prem Singh, law student at the University of Jammu. Prem works on Indian data protection and IT law.
                   </p>
                   <p>
                     He built WebCompliance.in to give Indian tech startups and their compliance advisors a dependable, offline software tool for DPDP readiness. Instead of billable consulting hours or vague legal memos, every audit produces verified findings and practical developer instructions.
@@ -803,17 +803,13 @@ export default function HomePage() {
                   <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
                     Email
                   </div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-main)' }}>
-                    [PREM TO FILL]
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
-                    Phone / WhatsApp
-                  </div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-main)' }}>
-                    [PREM TO FILL]
+                  <div>
+                    <a
+                      href="mailto:prem.webcompliance@gmail.com"
+                      style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'underline' }}
+                    >
+                      prem.webcompliance@gmail.com
+                    </a>
                   </div>
                 </div>
 

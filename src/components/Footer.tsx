@@ -85,8 +85,8 @@ export default function Footer() {
             </div>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem' }}>
               <li>
-                <Link href="/scan" style={{ fontWeight: 600 }}>
-                  Free website privacy check
+                <Link href="/website-check" style={{ fontWeight: 600 }}>
+                  Website privacy check
                 </Link>
               </li>
               <li>

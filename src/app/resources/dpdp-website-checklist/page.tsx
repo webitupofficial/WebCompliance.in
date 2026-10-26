@@ -159,10 +159,10 @@ export default function ChecklistArticlePage() {
             Audit Your Website Against This Checklist In 60 Seconds
           </h3>
           <p style={{ fontSize: '0.875rem', color: '#4B5563', marginBottom: '1.25rem' }}>
-            Run the free WebCompliance preliminary scanner to inspect notices, forms, trackers, and hygiene automatically.
+            Run the WebCompliance preliminary check to inspect notices, forms, trackers, and hygiene automatically.
           </p>
-          <Link href="/website-assessment" className="btn btn-primary btn-lg">
-            Launch Website Scanner →
+          <Link href="/website-check" className="btn btn-primary btn-lg">
+            Launch Website Check →
           </Link>
         </div>
 
