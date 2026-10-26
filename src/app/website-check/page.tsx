@@ -82,8 +82,8 @@ export default function WebsiteCheckPage() {
     setIsLoading(true);
 
     try {
-      // 1. Create order on server
-      const res = await fetch('/api/payment/create-order', {
+      // 1. Create order on server using /api/create-order
+      const res = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +94,8 @@ export default function WebsiteCheckPage() {
       });
 
       const orderData = await res.json();
-      if (!res.ok || !orderData.orderId) {
+      const orderId = orderData.order_id || orderData.orderId;
+      if (!res.ok || !orderId) {
         throw new Error(orderData.error || 'Failed to initialize payment order.');
       }
 
@@ -103,13 +104,16 @@ export default function WebsiteCheckPage() {
         throw new Error('Payment gateway is loading. Please try again in a few seconds.');
       }
 
+      const clientKey =
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || orderData.key_id || orderData.keyId;
+
       const options = {
-        key: orderData.keyId,
+        key: clientKey,
         amount: orderData.amount,
         currency: orderData.currency || 'INR',
         name: 'WebCompliance.in',
         description: 'Website Privacy Check',
-        order_id: orderData.orderId,
+        order_id: orderId,
         prefill: {
           email: email.trim(),
         },
@@ -122,8 +126,8 @@ export default function WebsiteCheckPage() {
           razorpay_signature: string;
         }) {
           try {
-            // 3. Verify payment on server and retrieve access token
-            const verifyRes = await fetch('/api/payment/verify', {
+            // 3. Verify payment on server using /api/verify-payment and retrieve access token
+            const verifyRes = await fetch('/api/verify-payment', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -135,13 +139,17 @@ export default function WebsiteCheckPage() {
 
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok || !verifyData.token) {
-              throw new Error(verifyData.error || 'Payment verification failed. Please contact prem.webcompliance@gmail.com.');
+              throw new Error(
+                verifyData.error ||
+                  'Payment verification failed. Please contact prem.webcompliance@gmail.com.'
+              );
             }
 
             // 4. Redirect to gated scan page
             window.location.href = `/scan?token=${encodeURIComponent(verifyData.token)}`;
           } catch (verifyErr: unknown) {
-            const msg = verifyErr instanceof Error ? verifyErr.message : 'Verification error occurred';
+            const msg =
+              verifyErr instanceof Error ? verifyErr.message : 'Verification error occurred';
             setErrorMessage(msg);
             setIsLoading(false);
           }
@@ -149,11 +157,27 @@ export default function WebsiteCheckPage() {
         modal: {
           ondismiss: function () {
             setIsLoading(false);
+            setErrorMessage('Payment cancelled. You have not been charged.');
           },
         },
       };
 
       const rzpInstance = new window.Razorpay(options);
+
+      // Handle payment.failed event with clear message
+      if (typeof rzpInstance.on === 'function') {
+        rzpInstance.on(
+          'payment.failed',
+          function (response: { error?: { description?: string } }) {
+            setIsLoading(false);
+            const failureReason =
+              response.error?.description ||
+              'Payment failed or was declined by your bank. You have not been charged.';
+            setErrorMessage(`${failureReason} Please try again.`);
+          }
+        );
+      }
+
       rzpInstance.open();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
