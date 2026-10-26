@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyScanToken, hashToken } from '@/lib/tokens';
+import { findOrderByTokenHash, markTokenUsed, updateOrder } from '@/lib/orders';
 import { runSafeWebsiteScan, validateTargetUrl } from '@/lib/scanner';
-import { DEMO_REPORTS } from '@/lib/mock-reports';
 import { saveReport, getReport } from '@/lib/storage';
 
 export async function GET(request: NextRequest) {
@@ -21,59 +22,105 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { websiteUrl, workEmail, consentGiven, isDemo, demoPreset } = body;
+    const authHeader = request.headers.get('authorization');
+    let token: string | undefined;
 
-    if (!consentGiven) {
-      return NextResponse.json({
-        error: 'Consent is required to generate the assessment report and receive service details.'
-      }, { status: 400 });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
     }
 
-    if (!workEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(workEmail)) {
-      return NextResponse.json({
-        error: 'A valid work email address is required.'
-      }, { status: 400 });
+    let body: { token?: string } = {};
+    try {
+      body = await request.json();
+    } catch {
+      // Body might be empty if token is in header
     }
 
-    // Demo Mode Handling
-    if (isDemo || demoPreset || !websiteUrl || websiteUrl.includes('demo-')) {
-      const presetKey = demoPreset === 'ecommerce' ? 'demo-ecommerce' : 'demo-saas';
-      const demoReport = DEMO_REPORTS[presetKey];
-      // Clone and personalize if custom URL supplied
-      const personalizedReport = {
-        ...demoReport,
-        assessmentId: `WC-WEB-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        scanDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
-        targetDomain: websiteUrl ? new URL(validateTargetUrl(websiteUrl).normalized || 'https://demo-saas.in').hostname : demoReport.targetDomain,
-        website: websiteUrl ? (validateTargetUrl(websiteUrl).normalized || 'https://demo-saas.in') : demoReport.website,
-        isDemo: true
-      };
-
-      saveReport(personalizedReport);
-      return NextResponse.json({ success: true, report: personalizedReport });
+    if (!token && body.token) {
+      token = body.token.trim();
     }
 
-    // Live Scan Handling
-    const validation = validateTargetUrl(websiteUrl);
+    // 1. Independent Token Validation
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required. A valid, unspent scan token must be provided.' },
+        { status: 401 }
+      );
+    }
+
+    const payload = verifyScanToken(token);
+    if (!payload) {
+      return NextResponse.json(
+        { error: 'Invalid or expired scan token. Please purchase a website check at /website-check.' },
+        { status: 401 }
+      );
+    }
+
+    const tokenHashed = hashToken(token);
+    const order = findOrderByTokenHash(tokenHashed);
+
+    if (!order) {
+      return NextResponse.json(
+        { error: 'No order record found for this token.' },
+        { status: 404 }
+      );
+    }
+
+    if (order.token_used) {
+      return NextResponse.json(
+        { error: 'This scan token has already been used. Each token is single-use.' },
+        { status: 403 }
+      );
+    }
+
+    // 2. Scan ONLY the URL bound to the token (user cannot change URL after payment)
+    const targetUrl = payload.url;
+    const validation = await validateTargetUrl(targetUrl);
     if (!validation.valid || !validation.normalized) {
-      return NextResponse.json({ error: validation.error || 'Invalid target website URL.' }, { status: 400 });
+      return NextResponse.json(
+        { error: validation.error || 'Invalid target website URL bound to order.' },
+        { status: 400 }
+      );
     }
+
+    // Mark token as used before executing scan to prevent race conditions
+    markTokenUsed(tokenHashed);
 
     try {
       const liveReport = await runSafeWebsiteScan(validation.normalized);
       saveReport(liveReport);
+
+      // Link report ID to order
+      updateOrder(order.order_id, {
+        report_id: liveReport.assessmentId,
+      });
+
       return NextResponse.json({ success: true, report: liveReport });
     } catch (scanErr: unknown) {
-      // In case of live network block, fallback safely to an honest report
-      return NextResponse.json({
-        error: scanErr instanceof Error ? scanErr.message : 'Could not scan the target website due to network constraints or timeout.',
-        fallbackRecommendation: 'The website may block automated scanners or require authorization. Request an in-depth human assessment.'
-      }, { status: 502 });
+      console.error('Scan execution error:', scanErr);
+      // Mark order as refund_due if scan fails after payment
+      updateOrder(order.order_id, {
+        status: 'refund_due',
+      });
+
+      return NextResponse.json(
+        {
+          error:
+            scanErr instanceof Error
+              ? scanErr.message
+              : 'Could not complete scan on target website. An alert has been flagged for review.',
+        },
+        { status: 502 }
+      );
     }
   } catch (err: unknown) {
-    return NextResponse.json({
-      error: 'Invalid request payload: ' + (err instanceof Error ? err.message : 'Unknown error')
-    }, { status: 400 });
+    return NextResponse.json(
+      {
+        error:
+          'Invalid scan request: ' +
+          (err instanceof Error ? err.message : 'Unknown error'),
+      },
+      { status: 400 }
+    );
   }
 }

@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/report/*'] // Protect individual scan reports from public indexing
+        disallow: ['/api/', '/report/*', '/scan'] // Protect individual scan reports and gated scanner
       }
     ],
     sitemap: 'https://webcompliance.in/sitemap.xml'
