@@ -15,6 +15,12 @@ export type SeverityLevel = 'High' | 'Medium' | 'Low' | 'Informational';
 
 export type ConfidenceLevel = 'High' | 'Medium' | 'Low';
 
+export type FindingCheckStatus = 
+  | 'Gap observed' 
+  | 'Looks OK' 
+  | 'Needs manual review' 
+  | 'Could not check';
+
 export type FindingCategory = 
   | 'Privacy Notice'
   | 'Form Transparency'
@@ -29,6 +35,7 @@ export interface Finding {
   findingId: string;
   title: string;
   state: AssessmentState;
+  checkStatus?: FindingCheckStatus;
   evidenceStatus: EvidenceStatus;
   category: FindingCategory;
   severity: SeverityLevel;
@@ -39,8 +46,8 @@ export interface Finding {
   referenceId?: string;
   whyItMatters: string;
   suggestedFix: string; // Exactly one practical first action
-  limitation: string;
-  humanReview: 'Recommended' | 'Required';
+  limitation?: string;
+  humanReview?: 'Recommended' | 'Required';
 }
 
 export interface DetectedForm {
@@ -91,6 +98,8 @@ export interface ScanReport {
   manualReviewItemsCount: number;
   notAssessableItemsCount: number;
   isDemo: boolean;
+  scanMethod?: 'Headless browser analysis' | 'Static HTML analysis';
+  preliminaryNotice?: string;
   assessmentSummary: 'Review recommended' | 'Several visible website-level gaps identified' | 'Preliminary hygiene observed — manual review recommended';
   readinessIndicator: {
     label: string;

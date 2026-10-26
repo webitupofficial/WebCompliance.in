@@ -4,6 +4,23 @@ import { findOrderByTokenHash, markTokenUsed, updateOrder } from '@/lib/orders';
 import { runSafeWebsiteScan, validateTargetUrl } from '@/lib/scanner';
 import { saveReport, getReport } from '@/lib/storage';
 
+// Simple in-memory sliding window rate limiter per IP: max 5 requests per 60 seconds
+const ipRateLimitMap = new Map<string, number[]>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxRequests = 5;
+
+  const timestamps = (ipRateLimitMap.get(ip) || []).filter((t) => now - t < windowMs);
+  if (timestamps.length >= maxRequests) {
+    return false;
+  }
+  timestamps.push(now);
+  ipRateLimitMap.set(ip, timestamps);
+  return true;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
@@ -22,6 +39,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown-ip';
+
+    if (!checkRateLimit(clientIp)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Too many scan attempts. Please wait a minute before retrying.' },
+        { status: 429 }
+      );
+    }
     const authHeader = request.headers.get('authorization');
     let token: string | undefined;
 
