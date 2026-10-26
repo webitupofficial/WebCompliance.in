@@ -5,7 +5,7 @@ import InDepthAssessmentCta from '@/components/InDepthAssessmentCta';
 
 export const metadata: Metadata = {
   title: 'Pricing & Scope Comparison — WebCompliance.in',
-  description: 'Explore the scope of free preliminary website DPDP scans, multi-site agency evaluations, and expert-led in-depth organizational compliance assessments.',
+  description: 'Explore the scope of preliminary website DPDP checks, multi-site agency evaluations, and expert-led in-depth organizational compliance assessments.',
   alternates: {
     canonical: 'https://webcompliance.in/pricing',
   }
@@ -24,13 +24,13 @@ export default function PricingPage() {
           Assessment Scope & Options
         </h1>
         <p style={{ fontSize: '1.1rem', color: '#374151', lineHeight: '1.6' }}>
-          WebCompliance begins with a free, safe public website readiness scan. When you need deeper verification of internal databases, cloud sub-processors, or vendor contracts, engage our senior privacy team.
+          WebCompliance offers preliminary website privacy checks as well as comprehensive on-site DPDP Act gap audits for Indian businesses.
         </p>
       </div>
 
       {/* Pricing Cards */}
       <div className="swiss-grid-3" style={{ marginBottom: '3.5rem', alignItems: 'stretch' }}>
-        {/* Tier 1: Free Public Scan */}
+        {/* Tier 1: Website Check */}
         <div className="dossier-panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -38,13 +38,13 @@ export default function PricingPage() {
               <span className="badge badge-info">AUTOMATED</span>
             </div>
             <h2 style={{ fontSize: '1.45rem', fontWeight: 900, marginBottom: '0.5rem' }}>
-              Preliminary Website Scan
+              Website Privacy Check
             </h2>
-            <div style={{ fontSize: '2rem', fontWeight: 900, margin: '1rem 0' }} className="font-mono">
-              ₹0 <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-slate)' }}>/ Free Always</span>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '1rem 0', color: 'var(--color-primary)' }}>
+              Paid Entry Product
             </div>
             <p style={{ fontSize: '0.8125rem', color: '#4B5563', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-              Instant automated assessment of public notices, forms, trackers, cookies, and technical hygiene indicators.
+              Automated assessment of public notices, forms, trackers, cookies, and technical hygiene indicators.
             </p>
 
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.8125rem', color: '#374151', marginBottom: '1.5rem' }}>
@@ -71,8 +71,8 @@ export default function PricingPage() {
             </ul>
           </div>
 
-          <Link href="/website-assessment" className="btn btn-primary" style={{ width: '100%' }}>
-            Scan My Website Now →
+          <Link href="/website-check" className="btn btn-primary" style={{ width: '100%' }}>
+            Check Website Privacy →
           </Link>
         </div>
 

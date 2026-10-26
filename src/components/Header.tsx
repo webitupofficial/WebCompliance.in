@@ -24,7 +24,17 @@ export default function Header() {
 
         {/* Header CTA Button */}
         <div className="header-actions">
-          <Link href="/#contact" className="btn btn-primary btn-sm">
+          <Link
+            href="/#contact?type=demo"
+            onClick={(e) => {
+              if (typeof window !== 'undefined' && window.location.pathname === '/') {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('wc_set_inquiry_type', { detail: { type: 'demo' } }));
+                document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            className="btn btn-primary btn-sm"
+          >
             Book a 10-min demo
           </Link>
           <button

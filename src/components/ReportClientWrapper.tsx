@@ -20,13 +20,15 @@ export default function ReportClientWrapper({ initialReport, assessmentId }: Rep
 
     // 1. Try restoring from sessionStorage
     try {
-      const cached = sessionStorage.getItem(`wc_report_${assessmentId}`) || sessionStorage.getItem('wc_latest_report');
+      const cached =
+        sessionStorage.getItem(`wc_report_${assessmentId}`) ||
+        sessionStorage.getItem('wc_latest_report');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.assessmentId?.toLowerCase() === assessmentId.toLowerCase() || !initialReport) {
           setReport({
             ...parsed,
-            assessmentId: assessmentId.toUpperCase()
+            assessmentId: assessmentId.toUpperCase(),
           });
           setLoading(false);
           return;
@@ -38,8 +40,8 @@ export default function ReportClientWrapper({ initialReport, assessmentId }: Rep
 
     // 2. Try fetching from API
     fetch(`/api/scan?id=${encodeURIComponent(assessmentId)}`)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data.report) {
           setReport(data.report);
         }
@@ -53,15 +55,15 @@ export default function ReportClientWrapper({ initialReport, assessmentId }: Rep
   if (loading) {
     return (
       <div className="container" style={{ paddingTop: '4rem', paddingBottom: '4rem', textAlign: 'center' }}>
-        <div className="dossier-panel" style={{ maxWidth: '600px', margin: '0 auto', padding: '2.5rem' }}>
-          <div className="font-mono uppercase tracking-wider" style={{ fontSize: '0.75rem', color: 'var(--color-cobalt)', fontWeight: 800, marginBottom: '0.5rem' }}>
-            /// RESTORING ASSESSMENT RECORD ///
+        <div style={{ maxWidth: '540px', margin: '0 auto', background: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2.5rem' }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+            Retrieving Record
           </div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>
-            Loading Dossier: {assessmentId}
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-main)', marginBottom: '1.25rem' }}>
+            Loading report: {assessmentId}
           </h2>
-          <div style={{ width: '100%', height: '6px', background: '#E5E7EB', overflow: 'hidden' }}>
-            <div style={{ height: '100%', background: 'var(--color-cobalt)', width: '60%', animation: 'pulse 1s infinite' }} />
+          <div style={{ width: '100%', height: '6px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: 'var(--color-primary)', width: '60%' }} />
           </div>
         </div>
       </div>
@@ -71,22 +73,22 @@ export default function ReportClientWrapper({ initialReport, assessmentId }: Rep
   if (!report) {
     return (
       <div className="container" style={{ paddingTop: '3.5rem', paddingBottom: '4rem' }}>
-        <div className="dossier-panel" style={{ maxWidth: '650px', margin: '0 auto', textAlign: 'center', padding: '3rem 1.5rem' }}>
-          <div className="font-mono uppercase tracking-wider" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-signal)', marginBottom: '0.5rem' }}>
-            DOSSIER LOOKUP FAILED
+        <div style={{ maxWidth: '600px', margin: '0 auto', background: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '8px', textAlign: 'center', padding: '3rem 1.5rem' }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+            Record Not Found
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 900, marginBottom: '0.75rem' }}>
-            Assessment Record Not Found
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-text-main)', marginBottom: '0.75rem' }}>
+            Report Not Found
           </h1>
-          <p style={{ fontSize: '0.9rem', color: '#4B5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-            The requested assessment identifier <code className="font-mono" style={{ background: '#EEE', padding: '0.2rem 0.4rem' }}>{assessmentId}</code> could not be located in our session cache or on disk.
+          <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+            The requested assessment report <code style={{ background: '#f1f5f9', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>{assessmentId}</code> could not be located.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Link href="/website-assessment" className="btn btn-primary">
-              Run New Website Scan →
+            <Link href="/website-check" className="btn btn-primary">
+              Request a Website Check &rarr;
             </Link>
-            <Link href="/report/WC-WEB-2026-0001" className="btn btn-dark">
-              Load Sample SaaS Dossier
+            <Link href="/" className="btn btn-secondary">
+              Back to Home
             </Link>
           </div>
         </div>
@@ -96,10 +98,14 @@ export default function ReportClientWrapper({ initialReport, assessmentId }: Rep
 
   return (
     <div className="container" style={{ paddingTop: '2rem' }}>
-      <Breadcrumb items={[
-        { label: 'Scanner', href: '/website-assessment' },
-        { label: `Dossier ${report.assessmentId}` }
-      ]} />
+      <div className="no-print">
+        <Breadcrumb
+          items={[
+            { label: 'Website privacy check', href: '/website-check' },
+            { label: `Report ${report.assessmentId}` },
+          ]}
+        />
+      </div>
       <ReportView report={report} />
     </div>
   );
