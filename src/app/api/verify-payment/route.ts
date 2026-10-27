@@ -58,70 +58,69 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    const isTestOrder = order_id.startsWith('order_test_');
 
-    // 2. Timing-safe Signature Verification
-    if (keySecret) {
-      const generatedSignature = crypto
-        .createHmac('sha256', keySecret)
-        .update(`${order_id}|${payment_id}`)
-        .digest('hex');
-
-      const sigBuf = Buffer.from(signature, 'utf8');
-      const genBuf = Buffer.from(generatedSignature, 'utf8');
-
-      if (sigBuf.length !== genBuf.length || !crypto.timingSafeEqual(sigBuf, genBuf)) {
-        // Signature mismatch -> 400 and do NOT mark paid
-        return NextResponse.json(
-          { error: 'Payment signature mismatch. Verification failed.' },
-          { status: 400 }
-        );
-      }
-    } else if (isTestOrder) {
-      if (!signature || signature.length < 10) {
-        return NextResponse.json(
-          { error: 'Invalid test signature.' },
-          { status: 400 }
-        );
-      }
-    } else {
+    if (!keyId || !keySecret) {
       return NextResponse.json(
         { error: 'Server payment configuration missing. Contact prem.webcompliance@gmail.com.' },
         { status: 500 }
       );
     }
 
+    // 2. Timing-safe HMAC-SHA256 Signature Verification
+    const generatedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${order_id}|${payment_id}`)
+      .digest('hex');
+
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const genBuf = Buffer.from(generatedSignature, 'utf8');
+
+    if (sigBuf.length !== genBuf.length || !crypto.timingSafeEqual(sigBuf, genBuf)) {
+      // Signature mismatch -> 400 and do NOT mark paid
+      return NextResponse.json(
+        { error: 'Payment signature mismatch. Verification failed.' },
+        { status: 400 }
+      );
+    }
+
     // 3. Confirm captured status & amount from Razorpay API
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    if (keyId && keySecret && !isTestOrder) {
+    let payment;
+    try {
       const razorpay = new Razorpay({
         key_id: keyId,
         key_secret: keySecret,
       });
+      payment = await razorpay.payments.fetch(payment_id);
+    } catch (rzErr) {
+      console.error('Failed to fetch payment from Razorpay:', rzErr);
+      return NextResponse.json(
+        { error: 'Payment verification failed on Razorpay gateway.' },
+        { status: 400 }
+      );
+    }
 
-      const payment = await razorpay.payments.fetch(payment_id);
-      if (!payment) {
-        return NextResponse.json(
-          { error: 'Payment not found on Razorpay gateway.' },
-          { status: 400 }
-        );
-      }
+    if (!payment) {
+      return NextResponse.json(
+        { error: 'Payment not found on Razorpay gateway.' },
+        { status: 400 }
+      );
+    }
 
-      if (payment.status !== 'captured') {
-        return NextResponse.json(
-          { error: `Payment status is "${payment.status}", expected "captured".` },
-          { status: 400 }
-        );
-      }
+    if (payment.status !== 'captured') {
+      return NextResponse.json(
+        { error: `Payment status is "${payment.status}", expected "captured".` },
+        { status: 400 }
+      );
+    }
 
-      const expectedAmountPaise = order.amount * 100;
-      if (payment.amount !== expectedAmountPaise) {
-        return NextResponse.json(
-          { error: 'Payment amount mismatch detected.' },
-          { status: 400 }
-        );
-      }
+    const expectedAmountPaise = order.amount * 100;
+    if (payment.amount !== expectedAmountPaise) {
+      return NextResponse.json(
+        { error: 'Payment amount mismatch detected.' },
+        { status: 400 }
+      );
     }
 
     // 4. Issue signed single-use access token expiring in 24 hours
