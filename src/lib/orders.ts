@@ -100,7 +100,12 @@ export function getOrder(orderId: string): OrderRecord | null {
   if (!global.__webcompliance_orders) {
     global.__webcompliance_orders = loadOrdersFromDisk();
   }
-  return global.__webcompliance_orders.get(orderId) || null;
+  let order = global.__webcompliance_orders.get(orderId);
+  if (!order) {
+    global.__webcompliance_orders = loadOrdersFromDisk();
+    order = global.__webcompliance_orders.get(orderId);
+  }
+  return order || null;
 }
 
 export function updateOrder(orderId: string, updates: Partial<OrderRecord>): OrderRecord | null {
@@ -119,6 +124,13 @@ export function findOrderByTokenHash(tokenHash: string): OrderRecord | null {
   if (!global.__webcompliance_orders) {
     global.__webcompliance_orders = loadOrdersFromDisk();
   }
+  for (const [, order] of global.__webcompliance_orders) {
+    if (order.token_hash === tokenHash) {
+      return order;
+    }
+  }
+  // Refresh from disk in case written by an external worker or recent request
+  global.__webcompliance_orders = loadOrdersFromDisk();
   for (const [, order] of global.__webcompliance_orders) {
     if (order.token_hash === tokenHash) {
       return order;

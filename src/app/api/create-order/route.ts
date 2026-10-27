@@ -51,41 +51,59 @@ export async function POST(req: NextRequest) {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-    if (keyId && keySecret) {
-      try {
-        const razorpay = new Razorpay({
-          key_id: keyId,
-          key_secret: keySecret,
-        });
+    if (!keyId || !keySecret) {
+      return NextResponse.json(
+        { error: 'Payment gateway configuration missing. Please verify server environment keys.' },
+        { status: 500 }
+      );
+    }
 
-        const rzOrder = await razorpay.orders.create({
-          amount: amountInPaise,
-          currency: 'INR',
-          receipt,
-          notes: {
-            url: url.trim(),
-            email: email.trim(),
-            company: company?.trim() || '',
-            product: 'website_privacy_check',
-          },
-        });
+    // Server-side safety: block checkout if Production is running with a test key
+    const isProductionEnv =
+      process.env.VERCEL_ENV === 'production' ||
+      (process.env.NODE_ENV === 'production' &&
+        (process.env.NEXT_PUBLIC_APP_URL?.includes('webcompliance.in') ||
+          process.env.VERCEL_PROJECT_PRODUCTION_URL?.includes('webcompliance.in')));
 
-        orderId = rzOrder.id;
-      } catch (rzErr: unknown) {
-        console.error('Razorpay API error in create-order:', rzErr);
-        // Razorpay auth failure -> 401, other API errors -> 500
-        const status =
-          typeof rzErr === 'object' && rzErr && 'statusCode' in rzErr && rzErr.statusCode === 401
-            ? 401
-            : 500;
-        return NextResponse.json(
-          { error: 'Payment gateway communication failure. Please verify credentials.' },
-          { status }
-        );
-      }
-    } else {
-      // Test mock order ID when keys are not configured
-      orderId = `order_test_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    if (isProductionEnv && keyId.startsWith('rzp_test_')) {
+      console.warn(
+        'SECURITY ALERT: Checkout blocked because Production environment is running with Razorpay test keys.'
+      );
+      return NextResponse.json(
+        { error: 'Payment gateway configuration error. Live checkout cannot use test credentials.' },
+        { status: 500 }
+      );
+    }
+
+    try {
+      const razorpay = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+      });
+
+      const rzOrder = await razorpay.orders.create({
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt,
+        notes: {
+          url: url.trim(),
+          email: email.trim(),
+          company: company?.trim() || '',
+          product: 'website_privacy_check',
+        },
+      });
+
+      orderId = rzOrder.id;
+    } catch (rzErr: unknown) {
+      console.error('Razorpay API error in create-order:', rzErr);
+      const status =
+        typeof rzErr === 'object' && rzErr && 'statusCode' in rzErr && rzErr.statusCode === 401
+          ? 401
+          : 500;
+      return NextResponse.json(
+        { error: 'Payment gateway communication failure. Please verify credentials.' },
+        { status }
+      );
     }
 
     // 3. Save pending order in system storage
@@ -107,8 +125,8 @@ export async function POST(req: NextRequest) {
       amount: amountInPaise,
       amountInr: priceInr,
       currency: 'INR',
-      key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId || 'rzp_test_placeholder',
-      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId || 'rzp_test_placeholder',
+      key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId,
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId,
     });
   } catch (error: unknown) {
     console.error('Error creating payment order:', error);
