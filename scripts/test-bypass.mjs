@@ -2,13 +2,14 @@ import crypto from 'crypto';
 import fs from 'fs';
 
 // Read SCAN_TOKEN_SECRET from .env.local
-let secret = 'wc-test-secret-key-for-gated-tokens';
+let secret = process.env.SCAN_TOKEN_SECRET || 'wc-default-token-secret-change-in-env';
 if (fs.existsSync('.env.local')) {
   const lines = fs.readFileSync('.env.local', 'utf8').split('\n');
   for (const line of lines) {
     const idx = line.indexOf('=');
     if (idx > -1 && line.substring(0, idx).trim() === 'SCAN_TOKEN_SECRET') {
-      secret = line.substring(idx + 1).trim();
+      const val = line.substring(idx + 1).trim();
+      if (val) secret = val;
       break;
     }
   }
