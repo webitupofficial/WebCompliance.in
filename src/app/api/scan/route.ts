@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyScanToken, hashToken } from '@/lib/tokens';
-import { findOrderByTokenHash, markTokenUsed, updateOrder } from '@/lib/orders';
+import { findOrderByTokenHash, claimTokenAtomically, isTokenUsed, updateOrder } from '@/lib/orders';
 import { runSafeWebsiteScan, validateTargetUrl } from '@/lib/scanner';
 import { saveReport, getReport } from '@/lib/storage';
+import { sendReportEmail } from '@/lib/email';
 
 // Simple in-memory sliding window rate limiter per IP: max 5 requests per 60 seconds
 const ipRateLimitMap = new Map<string, number[]>();
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Assessment ID parameter is required' }, { status: 400 });
   }
 
-  const report = getReport(id);
+  const report = await getReport(id);
   if (!report) {
     return NextResponse.json({ error: 'Assessment report not found' }, { status: 404 });
   }
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tokenHashed = hashToken(token);
-    const order = findOrderByTokenHash(tokenHashed);
+    const order = await findOrderByTokenHash(tokenHashed);
 
     if (!order) {
       return NextResponse.json(
@@ -94,7 +95,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (order.token_used) {
+    // Pre-check if already used
+    const alreadyUsed = order.token_used || (await isTokenUsed(tokenHashed));
+    if (alreadyUsed) {
       return NextResponse.json(
         { error: 'This scan token has already been used. Each token is single-use.' },
         { status: 403 }
@@ -111,43 +114,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark token as used before executing scan to prevent race conditions
-    markTokenUsed(tokenHashed);
+    // 3. Atomically claim token using SET ... NX to prevent parallel race conditions
+    const claimed = await claimTokenAtomically(tokenHashed);
+    if (!claimed) {
+      return NextResponse.json(
+        { error: 'This scan token has already been used. Each token is single-use.' },
+        { status: 403 }
+      );
+    }
 
     try {
       const liveReport = await runSafeWebsiteScan(validation.normalized);
-      saveReport(liveReport);
+      await saveReport(liveReport);
 
       // Link report ID to order
-      updateOrder(order.order_id, {
+      await updateOrder(order.order_id, {
         report_id: liveReport.assessmentId,
       });
 
-      // Dispatch transactional report email (non-blocking)
+      // Dispatch transactional report email
       const siteOrigin =
         process.env.NEXT_PUBLIC_APP_URL ||
         (request.headers.get('host')
           ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('host')}`
           : 'https://webcompliance.in');
 
-      import('@/lib/email').then(({ sendReportEmail }) => {
-        sendReportEmail({
-          recipientEmail: order.email,
-          targetUrl: liveReport.website,
-          reportId: liveReport.assessmentId,
-          reportUrl: `${siteOrigin}/report/${liveReport.assessmentId}`,
-          gapCount: liveReport.readinessIndicator.observableGapsCount,
-          totalChecks: liveReport.readinessIndicator.totalChecks,
-        }).catch(() => {});
+      const emailResult = await sendReportEmail({
+        recipientEmail: order.email,
+        targetUrl: liveReport.website,
+        reportId: liveReport.assessmentId,
+        reportUrl: `${siteOrigin}/report/${liveReport.assessmentId}`,
+        gapCount: liveReport.readinessIndicator.observableGapsCount,
+        totalChecks: liveReport.readinessIndicator.totalChecks,
       });
 
-      return NextResponse.json({ success: true, report: liveReport });
+      return NextResponse.json({
+        success: true,
+        report: liveReport,
+        emailSent: emailResult.success,
+        emailWarning: !emailResult.success
+          ? 'We could not email your report. Please save this link.'
+          : undefined,
+      });
     } catch (scanErr: unknown) {
       console.error('Scan execution error:', scanErr);
       const errMsg = scanErr instanceof Error ? scanErr.message : 'Unknown scan error';
 
       // Mark order as refund_due if scan fails after payment
-      updateOrder(order.order_id, {
+      await updateOrder(order.order_id, {
         status: 'refund_due',
       });
 

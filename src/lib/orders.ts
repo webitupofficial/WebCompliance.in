@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { Redis } from '@upstash/redis';
 
 export interface OrderRecord {
   order_id: string;
@@ -16,133 +15,202 @@ export interface OrderRecord {
   currency: string;
 }
 
-const ORDERS_FILE = path.join(process.cwd(), '.data', 'orders.json');
+// 90-day TTL in seconds: 90 days * 24h * 60m * 60s = 7,776,000
+const NINETY_DAYS_SECONDS = 90 * 24 * 60 * 60;
 
+const REDIS_URL =
+  process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const REDIS_TOKEN =
+  process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+let redisClient: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (redisClient) return redisClient;
+  if (REDIS_URL && REDIS_TOKEN) {
+    redisClient = new Redis({
+      url: REDIS_URL,
+      token: REDIS_TOKEN,
+    });
+    return redisClient;
+  }
+  return null;
+}
+
+// In-memory fallback ONLY for local development when Redis credentials are not configured
 declare global {
   // eslint-disable-next-line no-var
-  var __webcompliance_orders: Map<string, OrderRecord> | undefined;
+  var __webcompliance_orders_mem: Map<string, OrderRecord> | undefined;
+  // eslint-disable-next-line no-var
+  var __webcompliance_tokens_used_mem: Set<string> | undefined;
 }
 
-function ensureDataDir(): void {
-  try {
-    const dir = path.dirname(ORDERS_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  } catch {
-    // Ignore in read-only environments
-  }
+if (!global.__webcompliance_orders_mem) {
+  global.__webcompliance_orders_mem = new Map();
 }
-
-function loadOrdersFromDisk(): Map<string, OrderRecord> {
-  const map = new Map<string, OrderRecord>();
-  try {
-    if (fs.existsSync(ORDERS_FILE)) {
-      const data = fs.readFileSync(ORDERS_FILE, 'utf-8');
-      const list: OrderRecord[] = JSON.parse(data);
-      list.forEach((ord) => map.set(ord.order_id, ord));
-    }
-  } catch (err) {
-    console.warn('Failed reading orders from disk:', err);
-  }
-  return map;
-}
-
-function persistOrdersToDisk(): void {
-  try {
-    ensureDataDir();
-    const list = Array.from(global.__webcompliance_orders?.values() || []);
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(list, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Failed persisting orders to disk:', err);
-  }
-}
-
-if (!global.__webcompliance_orders) {
-  global.__webcompliance_orders = loadOrdersFromDisk();
+if (!global.__webcompliance_tokens_used_mem) {
+  global.__webcompliance_tokens_used_mem = new Set();
 }
 
 /**
- * 90-day retention cleanup: redacts personal data (email, company, url)
- * from order records older than 90 days.
+ * Saves or updates an order.
+ * Stores in Upstash Redis with a 90-day TTL to satisfy DPDP Act retention requirements.
  */
-export function cleanupExpiredOrders(): number {
-  const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
-  let count = 0;
-  if (!global.__webcompliance_orders) return 0;
+export async function saveOrder(order: OrderRecord): Promise<void> {
+  const redis = getRedis();
 
-  for (const [, order] of global.__webcompliance_orders) {
-    const createdAt = new Date(order.created_at).getTime();
-    if (createdAt < cutoff && order.email !== '[REDACTED_90_DAYS]') {
-      order.email = '[REDACTED_90_DAYS]';
-      if (order.company) order.company = '[REDACTED_90_DAYS]';
-      order.url = '[REDACTED_90_DAYS]';
-      count++;
+  if (redis) {
+    // Save order record with 90-day retention TTL
+    await redis.set(`order:${order.order_id}`, JSON.stringify(order), {
+      ex: NINETY_DAYS_SECONDS,
+    });
+
+    // If order has a token_hash, maintain token -> order_id reverse lookup
+    if (order.token_hash) {
+      await redis.set(`token:order:${order.token_hash}`, order.order_id, {
+        ex: NINETY_DAYS_SECONDS,
+      });
     }
+    return;
   }
 
-  if (count > 0) {
-    persistOrdersToDisk();
-  }
-  return count;
+  // Memory fallback for local development
+  global.__webcompliance_orders_mem!.set(order.order_id, order);
 }
 
-export function saveOrder(order: OrderRecord): void {
-  if (!global.__webcompliance_orders) {
-    global.__webcompliance_orders = new Map();
-  }
-  global.__webcompliance_orders.set(order.order_id, order);
-  persistOrdersToDisk();
-}
-
-export function getOrder(orderId: string): OrderRecord | null {
+/**
+ * Retrieves an order by order_id.
+ */
+export async function getOrder(orderId: string): Promise<OrderRecord | null> {
   if (!orderId) return null;
-  if (!global.__webcompliance_orders) {
-    global.__webcompliance_orders = loadOrdersFromDisk();
+  const redis = getRedis();
+
+  if (redis) {
+    const raw = await redis.get<OrderRecord | string>(`order:${orderId}`);
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+    return raw;
   }
-  let order = global.__webcompliance_orders.get(orderId);
-  if (!order) {
-    global.__webcompliance_orders = loadOrdersFromDisk();
-    order = global.__webcompliance_orders.get(orderId);
-  }
-  return order || null;
+
+  return global.__webcompliance_orders_mem!.get(orderId) || null;
 }
 
-export function updateOrder(orderId: string, updates: Partial<OrderRecord>): OrderRecord | null {
-  const order = getOrder(orderId);
+/**
+ * Updates partial order fields and persists.
+ */
+export async function updateOrder(
+  orderId: string,
+  updates: Partial<OrderRecord>
+): Promise<OrderRecord | null> {
+  const order = await getOrder(orderId);
   if (!order) return null;
+
   const updated: OrderRecord = {
     ...order,
     ...updates,
   };
-  saveOrder(updated);
+
+  await saveOrder(updated);
   return updated;
 }
 
-export function findOrderByTokenHash(tokenHash: string): OrderRecord | null {
+/**
+ * Checks if a token has already been marked as used.
+ */
+export async function isTokenUsed(tokenHash: string): Promise<boolean> {
+  if (!tokenHash) return true;
+  const redis = getRedis();
+
+  if (redis) {
+    const exists = await redis.exists(`token:used:${tokenHash}`);
+    return exists === 1;
+  }
+
+  return global.__webcompliance_tokens_used_mem!.has(tokenHash);
+}
+
+/**
+ * Finds an order by its SHA-256 token hash.
+ */
+export async function findOrderByTokenHash(tokenHash: string): Promise<OrderRecord | null> {
   if (!tokenHash) return null;
-  if (!global.__webcompliance_orders) {
-    global.__webcompliance_orders = loadOrdersFromDisk();
-  }
-  for (const [, order] of global.__webcompliance_orders) {
-    if (order.token_hash === tokenHash) {
-      return order;
+  const redis = getRedis();
+
+  if (redis) {
+    const orderId = await redis.get<string>(`token:order:${tokenHash}`);
+    if (!orderId) return null;
+    const order = await getOrder(orderId);
+    if (order) {
+      const used = await isTokenUsed(tokenHash);
+      if (used) {
+        order.token_used = true;
+      }
     }
+    return order;
   }
-  // Refresh from disk in case written by an external worker or recent request
-  global.__webcompliance_orders = loadOrdersFromDisk();
-  for (const [, order] of global.__webcompliance_orders) {
+
+  // Memory fallback
+  for (const [, order] of global.__webcompliance_orders_mem!) {
     if (order.token_hash === tokenHash) {
+      if (global.__webcompliance_tokens_used_mem!.has(tokenHash)) {
+        order.token_used = true;
+      }
       return order;
     }
   }
   return null;
 }
 
-export function markTokenUsed(tokenHash: string): boolean {
-  const order = findOrderByTokenHash(tokenHash);
-  if (!order) return false;
-  order.token_used = true;
-  saveOrder(order);
+/**
+ * Atomically marks a token as used using Redis SET ... NX.
+ * This guarantees mutual exclusion so two parallel requests cannot both claim or scan with the same token.
+ * Returns true if successfully claimed (first time).
+ * Returns false if already claimed / used.
+ */
+export async function claimTokenAtomically(tokenHash: string): Promise<boolean> {
+  if (!tokenHash) return false;
+  const redis = getRedis();
+
+  if (redis) {
+    // Atomic SET ... NX operation
+    const acquired = await redis.set(`token:used:${tokenHash}`, Date.now().toString(), {
+      nx: true,
+      ex: NINETY_DAYS_SECONDS,
+    });
+
+    if (!acquired) {
+      return false; // Token was ALREADY claimed
+    }
+
+    // Also update order record status if found
+    const orderId = await redis.get<string>(`token:order:${tokenHash}`);
+    if (orderId) {
+      await updateOrder(orderId, { token_used: true });
+    }
+    return true;
+  }
+
+  // Memory fallback
+  if (global.__webcompliance_tokens_used_mem!.has(tokenHash)) {
+    return false;
+  }
+  global.__webcompliance_tokens_used_mem!.add(tokenHash);
+  const order = await findOrderByTokenHash(tokenHash);
+  if (order) {
+    order.token_used = true;
+  }
   return true;
+}
+
+/**
+ * Backward compatibility alias for claimTokenAtomically.
+ */
+export async function markTokenUsed(tokenHash: string): Promise<boolean> {
+  return claimTokenAtomically(tokenHash);
 }

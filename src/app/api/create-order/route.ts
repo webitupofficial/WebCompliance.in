@@ -8,44 +8,78 @@ import { validateTargetUrl } from '@/lib/scanner';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { url, email, company } = body;
+    const {
+      url,
+      email,
+      company,
+      amount: clientAmount,
+      currency: clientCurrency,
+      receipt: clientReceipt,
+    } = body;
 
-    // 1. Validation
-    if (!url || typeof url !== 'string') {
-      return NextResponse.json(
-        { error: 'Please provide a valid, public website URL (starting with http:// or https://).' },
-        { status: 400 }
-      );
+    let amountInPaise: number;
+    let priceInr: number;
+    const currency = clientCurrency || 'INR';
+    const receipt =
+      clientReceipt || `order_rcpt_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    let notes: Record<string, string> = { product: 'website_privacy_check' };
+
+    // Support generic Razorpay Standard Checkout requests
+    if (clientAmount !== undefined && !url) {
+      if (typeof clientAmount !== 'number' || clientAmount < 100) {
+        return NextResponse.json(
+          { error: 'Invalid amount. Minimum amount is 100 paise (₹1).' },
+          { status: 400 }
+        );
+      }
+      amountInPaise = Math.round(clientAmount);
+      priceInr = Math.round(amountInPaise / 100);
+      if (body.notes && typeof body.notes === 'object') {
+        notes = { ...notes, ...body.notes };
+      }
+    } else {
+      // 1. Validation for website privacy check
+      if (!url || typeof url !== 'string') {
+        return NextResponse.json(
+          { error: 'Please provide a valid, public website URL (starting with http:// or https://).' },
+          { status: 400 }
+        );
+      }
+
+      const urlCheck = await validateTargetUrl(url);
+      if (!urlCheck.valid) {
+        return NextResponse.json(
+          { error: urlCheck.error || 'Please provide a valid, public website URL.' },
+          { status: 400 }
+        );
+      }
+
+      if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json(
+          { error: 'Please provide a valid email address.' },
+          { status: 400 }
+        );
+      }
+
+      // 2. Server-side price calculation (strictly from env, never from client)
+      const rawPrice = process.env.CHECK_PRICE_INR;
+      if (!rawPrice || isNaN(Number(rawPrice)) || Number(rawPrice) <= 0) {
+        return NextResponse.json(
+          { error: 'Pricing coming soon. Paid website privacy check is currently being scheduled.' },
+          { status: 400 }
+        );
+      }
+
+      priceInr = Math.round(Number(rawPrice));
+      amountInPaise = Math.max(100, priceInr * 100); // Minimum 100 paise
+      notes = {
+        url: url.trim(),
+        email: email.trim(),
+        company: company?.trim() || '',
+        product: 'website_privacy_check',
+      };
     }
 
-    const urlCheck = await validateTargetUrl(url);
-    if (!urlCheck.valid) {
-      return NextResponse.json(
-        { error: urlCheck.error || 'Please provide a valid, public website URL.' },
-        { status: 400 }
-      );
-    }
-
-    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json(
-        { error: 'Please provide a valid email address.' },
-        { status: 400 }
-      );
-    }
-
-    // 2. Server-side price calculation (strictly from env, never from client)
-    const rawPrice = process.env.CHECK_PRICE_INR;
-    if (!rawPrice || isNaN(Number(rawPrice)) || Number(rawPrice) <= 0) {
-      return NextResponse.json(
-        { error: 'Pricing coming soon. Paid website privacy check is currently being scheduled.' },
-        { status: 400 }
-      );
-    }
-
-    const priceInr = Math.round(Number(rawPrice));
-    const amountInPaise = Math.max(100, priceInr * 100); // Minimum 100 paise
-
-    const receipt = `order_rcpt_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     let orderId: string;
 
     const keyId = process.env.RAZORPAY_KEY_ID;
@@ -106,25 +140,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Save pending order in system storage
-    saveOrder({
-      order_id: orderId,
-      status: 'pending',
-      url: url.trim(),
-      email: email.trim().toLowerCase(),
-      company: company?.trim() || undefined,
-      token_used: false,
-      created_at: new Date().toISOString(),
-      amount: priceInr,
-      currency: 'INR',
-    });
+    // 3. Save pending order in system storage if tied to a website check
+    if (url && email) {
+      await saveOrder({
+        order_id: orderId,
+        status: 'pending',
+        url: url.trim(),
+        email: email.trim().toLowerCase(),
+        company: company?.trim() || undefined,
+        token_used: false,
+        created_at: new Date().toISOString(),
+        amount: priceInr,
+        currency,
+      });
+    }
 
     return NextResponse.json({
       order_id: orderId,
       orderId, // backward-compat
       amount: amountInPaise,
       amountInr: priceInr,
-      currency: 'INR',
+      currency,
       key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId,
       keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId,
     });

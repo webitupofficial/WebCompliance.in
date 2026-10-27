@@ -2,19 +2,20 @@ import crypto from 'crypto';
 import fs from 'fs';
 
 // Read SCAN_TOKEN_SECRET from .env.local
-let secret = 'wc-test-secret-key-for-gated-tokens';
+let secret = process.env.SCAN_TOKEN_SECRET || 'wc-default-token-secret-change-in-env';
 if (fs.existsSync('.env.local')) {
   const lines = fs.readFileSync('.env.local', 'utf8').split('\n');
   for (const line of lines) {
     const idx = line.indexOf('=');
     if (idx > -1 && line.substring(0, idx).trim() === 'SCAN_TOKEN_SECRET') {
-      secret = line.substring(idx + 1).trim();
+      const val = line.substring(idx + 1).trim();
+      if (val) secret = val;
       break;
     }
   }
 }
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = process.argv[2] || process.env.TEST_TARGET_URL || 'http://localhost:3000';
 
 function createToken(payload) {
   const header = { alg: 'HS256', typ: 'JWT' };
@@ -157,24 +158,34 @@ async function runBypassSuite() {
     });
     const tokenHash = crypto.createHash('sha256').update(reusableToken.trim()).digest('hex');
 
-    // Seed this order as already captured and spent (token_used: true) in the orders store
-    const ordersFilePath = '.data/orders.json';
-    let ordersList = [];
-    if (fs.existsSync(ordersFilePath)) {
-      ordersList = JSON.parse(fs.readFileSync(ordersFilePath, 'utf8'));
+    // If Upstash Redis is configured, seed the test order directly into Redis with token_used: true
+    const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+    if (redisUrl && redisToken) {
+      try {
+        const { Redis } = await import('@upstash/redis');
+        const redis = new Redis({ url: redisUrl, token: redisToken });
+        const testOrderId = 'order_reuse_test_' + Date.now();
+        await redis.set(`token:used:${tokenHash}`, Date.now().toString(), { ex: 3600 });
+        await redis.set(`token:order:${tokenHash}`, testOrderId, { ex: 3600 });
+        await redis.set(
+          `order:${testOrderId}`,
+          JSON.stringify({
+            order_id: testOrderId,
+            status: 'captured',
+            url: 'https://webcompliance.in',
+            email: 'test@example.com',
+            token_hash: tokenHash,
+            token_used: true,
+            amount: 999,
+            currency: 'INR',
+          }),
+          { ex: 3600 }
+        );
+      } catch (err) {
+        // Continue
+      }
     }
-    ordersList.push({
-      order_id: 'order_reuse_test_' + Date.now(),
-      status: 'captured',
-      url: 'https://webcompliance.in',
-      email: 'test@example.com',
-      token_hash: tokenHash,
-      token_used: true, // Mark already used!
-      created_at: new Date().toISOString(),
-      amount: 999,
-      currency: 'INR',
-    });
-    fs.writeFileSync(ordersFilePath, JSON.stringify(ordersList, null, 2), 'utf8');
 
     // Attempt to scan with the spent token
     const res = await fetch(`${BASE_URL}/api/scan`, {

@@ -63,10 +63,11 @@ export default function GatedScanner({ token, targetUrl, email, company }: Gated
 
       setCurrentStageIndex(PROGRESS_STAGES.length - 1);
       const reportId = data.report.assessmentId;
+      const emailQuery = data.emailSent === false ? '?email_delivery=failed' : '';
 
       // Small pause to let user see final completion stage before navigating
       setTimeout(() => {
-        router.push(`/report/${reportId}`);
+        router.push(`/report/${reportId}${emailQuery}`);
       }, 800);
     } catch (err: unknown) {
       clearInterval(interval);
