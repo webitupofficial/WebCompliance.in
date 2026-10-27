@@ -10,6 +10,7 @@ import {
   FindingCategory,
 } from './types';
 import { CHECK_LEGAL_REFERENCES } from '@/../content/check-references';
+import { runPageSpeed } from './psi';
 
 // Known tracker and third-party signatures
 const KNOWN_TRACKERS: { pattern: RegExp; name: string; category: string }[] = [
@@ -237,6 +238,9 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
   const scanDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const timestamp = new Date().toISOString();
 
+  // Real-browser check via Google PageSpeed Insights, runs in parallel with the static crawl
+  const psiPromise = runPageSpeed(baseOrigin);
+
   const discoveredPages = new Set<string>([baseOrigin]);
   const findings: Finding[] = [];
   const forms: DetectedForm[] = [];
@@ -250,6 +254,7 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
   let robotsTxtDetected: AssessmentState = 'Not detected';
   let sitemapDetected: AssessmentState = 'Not detected';
   const disallowedPaths: string[] = [];
+  let sitemapText = '';
 
   // 1. Check HTTP to HTTPS redirect
   try {
@@ -305,6 +310,7 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
     const sitemapRes = await safeFetchWithRedirects(`${baseOrigin}/sitemap.xml`, 2, 4000);
     if (sitemapRes.ok) {
       sitemapDetected = 'Detected';
+      sitemapText = sitemapRes.text.slice(0, 500000);
     }
   } catch {
     sitemapDetected = 'Not assessable';
@@ -336,6 +342,8 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
   let privacyPolicyUrl: string | null = null;
   let termsUrl: string | null = null;
   let cookiePolicyUrl: string | null = null;
+  let refundPolicyUrl: string | null = null;
+  let grievanceUrl: string | null = null;
   const candidatePages: string[] = [];
 
   if (homepageHtml) {
@@ -367,6 +375,12 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
           if (pathname.includes('cookie') || text.includes('cookie')) {
             cookiePolicyUrl = fullUrl.toString();
           }
+          if (/refund|cancellation|return/.test(pathname) || /refund|cancellation/.test(text)) {
+            refundPolicyUrl = fullUrl.toString();
+          }
+          if (/grievance/.test(pathname) || /grievance/.test(text)) {
+            grievanceUrl = fullUrl.toString();
+          }
 
           // Gather prioritized candidates: privacy, contact, signup, login, terms, cookie
           if (
@@ -390,6 +404,73 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
       }
     });
   }
+
+  // 5b. Find policy pages not linked from the homepage: sitemap.xml, then common paths
+  const policyFoundVia: Record<string, string> = {};
+  if (privacyPolicyUrl) policyFoundVia.privacy = 'homepage link';
+  if (termsUrl) policyFoundVia.terms = 'homepage link';
+  if (cookiePolicyUrl) policyFoundVia.cookie = 'homepage link';
+  if (refundPolicyUrl) policyFoundVia.refund = 'homepage link';
+  if (grievanceUrl) policyFoundVia.grievance = 'homepage link';
+
+  const policyPatterns: { key: string; re: RegExp }[] = [
+    { key: 'privacy', re: /privacy|data-protection/i },
+    { key: 'terms', re: /terms|conditions/i },
+    { key: 'cookie', re: /cookie/i },
+    { key: 'refund', re: /refund|cancellation/i },
+    { key: 'grievance', re: /grievance/i },
+  ];
+  const setPolicy = (key: string, url: string, via: string) => {
+    if (key === 'privacy' && !privacyPolicyUrl) privacyPolicyUrl = url;
+    else if (key === 'terms' && !termsUrl) termsUrl = url;
+    else if (key === 'cookie' && !cookiePolicyUrl) cookiePolicyUrl = url;
+    else if (key === 'refund' && !refundPolicyUrl) refundPolicyUrl = url;
+    else if (key === 'grievance' && !grievanceUrl) grievanceUrl = url;
+    else return;
+    policyFoundVia[key] = via;
+    if (!isDisallowedByRobots(new URL(url).pathname, disallowedPaths)) candidatePages.unshift(url);
+  };
+
+  if (sitemapText) {
+    const locs = Array.from(sitemapText.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)).map((m) => m[1]).slice(0, 5000);
+    for (const loc of locs) {
+      try {
+        const u = new URL(loc);
+        if (u.hostname !== domain && u.hostname !== `www.${domain}` && `www.${u.hostname}` !== domain) continue;
+        for (const pat of policyPatterns) {
+          if (pat.re.test(u.pathname)) setPolicy(pat.key, u.toString(), 'sitemap.xml');
+        }
+      } catch {
+        // ignore bad sitemap entries
+      }
+    }
+  }
+
+  const commonPaths: { key: string; paths: string[] }[] = [
+    { key: 'privacy', paths: ['/privacy-policy', '/privacy', '/privacy-notice', '/legal/privacy'] },
+    { key: 'terms', paths: ['/terms', '/terms-and-conditions', '/terms-of-service', '/legal/terms'] },
+    { key: 'cookie', paths: ['/cookie-policy', '/cookies'] },
+    { key: 'refund', paths: ['/refund-policy', '/refunds', '/cancellation-policy'] },
+    { key: 'grievance', paths: ['/grievance', '/grievance-redressal', '/grievance-officer'] },
+  ];
+  await Promise.all(
+    commonPaths.map(async ({ key, paths }) => {
+      for (const path of paths) {
+        if (policyFoundVia[key]) return;
+        if (isDisallowedByRobots(path, disallowedPaths)) continue;
+        try {
+          const res = await safeFetchWithRedirects(`${baseOrigin}${path}`, 3, 5000);
+          // Must be a real page, not a soft-404 back to the homepage
+          if (res.ok && res.text.length > 500 && new URL(res.finalUrl).pathname !== '/') {
+            setPolicy(key, res.finalUrl, `common address ${path}`);
+            return;
+          }
+        } catch {
+          // try next path
+        }
+      }
+    })
+  );
 
   // Deduplicate and cap up to 14 additional pages (making 15 total including homepage)
   for (const cand of Array.from(new Set(candidatePages))) {
@@ -672,6 +753,25 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
   }
 
   // CHECK 3 & 5: Third-party scripts, trackers, and cookies loaded before consent
+  const psi = await psiPromise;
+  const psiThirdPartyHosts = new Set<string>();
+  if (psi.ok) {
+    for (const reqUrl of psi.requestUrls) {
+      try {
+        const u = new URL(reqUrl);
+        const sameSite = u.hostname === domain || u.hostname.endsWith(`.${domain.replace(/^www\./, '')}`);
+        if (!sameSite) psiThirdPartyHosts.add(u.hostname);
+      } catch {
+        // ignore
+      }
+    }
+  } else {
+    unassessableItems.push({
+      item: 'Real-browser check (Google Lighthouse)',
+      reason: `Could not run: ${psi.error || 'unknown error'}. Static HTML analysis was used instead.`,
+      humanReviewRecommendation: 'Re-run the check later, or open the site in a fresh browser profile and review network requests before consent.',
+    });
+  }
   const detectedTrackers = new Map<string, { category: string; count: number }>();
   const externalDomains = new Set<string>();
 
@@ -711,6 +811,23 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
         }
       }
     });
+  }
+
+  for (const reqUrl of psi.ok ? psi.requestUrls : []) {
+    try {
+      const host = new URL(reqUrl).hostname;
+      if (!psiThirdPartyHosts.has(host)) continue;
+      externalDomains.add(host);
+      for (const tracker of KNOWN_TRACKERS) {
+        if (tracker.pattern.test(reqUrl) || tracker.pattern.test(host)) {
+          const current = detectedTrackers.get(tracker.name) || { category: tracker.category, count: 0 };
+          current.count++;
+          detectedTrackers.set(tracker.name, current);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
   detectedTrackers.forEach((meta, name) => {
@@ -763,6 +880,84 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
       humanReview: 'Recommended',
     });
   }
+
+  if (psi.ok) {
+    const hosts = Array.from(psiThirdPartyHosts).sort();
+    const entities = psi.thirdPartyEntities.length ? ` Google groups these as: ${psi.thirdPartyEntities.slice(0, 15).join(', ')}.` : '';
+    findings.push({
+      findingId: 'FIND-CHECK-05B',
+      title: hosts.length
+        ? `${hosts.length} third-party domain${hosts.length === 1 ? '' : 's'} contacted on first page load in a real browser`
+        : 'No third-party domains contacted on first page load in a real browser',
+      state: hosts.length ? 'Detected' : 'Not detected',
+      checkStatus: hosts.length ? 'Needs manual review' : 'Looks OK',
+      evidenceStatus: 'Observed',
+      category: 'Third-Party Scripts',
+      severity: hosts.length > 5 ? 'Medium' : 'Low',
+      confidence: 'High',
+      url: baseOrigin,
+      observedEvidence: hosts.length
+        ? `Google Lighthouse loaded the homepage in Chrome with no consent given. The page contacted: ${hosts.slice(0, 40).join(', ')}${hosts.length > 40 ? ` and ${hosts.length - 40} more` : ''}.${entities}`
+        : 'Google Lighthouse loaded the homepage in Chrome with no consent given and observed no requests to third-party domains.',
+      referenceCategory: 'Consent & Trackers',
+      referenceId: CHECK_LEGAL_REFERENCES.CONSENT_BEFORE_TRACKING.id,
+      whyItMatters: 'Each third-party domain can receive visitor data such as IP address and device details. Services that are not essential should normally wait until the visitor makes a consent choice.',
+      suggestedFix: 'List each domain above, mark it essential or non-essential, and delay non-essential ones until consent.',
+      limitation: 'This shows requests made on the first page load only. It cannot show what each service does with the data.',
+      humanReview: 'Recommended',
+    });
+    if (psi.failedBestPractices.length) {
+      findings.push({
+        findingId: 'FIND-CHECK-07B',
+        title: 'Browser best-practice checks that did not pass (Google Lighthouse)',
+        state: 'Detected',
+        checkStatus: 'Needs manual review',
+        evidenceStatus: 'Observed',
+        category: 'Website Hygiene',
+        severity: 'Low',
+        confidence: 'High',
+        url: baseOrigin,
+        observedEvidence: `Lighthouse reported: ${psi.failedBestPractices.slice(0, 12).join('; ')}.`,
+        referenceCategory: 'Technical Safeguards',
+        referenceId: CHECK_LEGAL_REFERENCES.SECURITY_AND_HYGIENE.id,
+        whyItMatters: 'These are general security and quality signals. They are good practice, not specific legal requirements.',
+        suggestedFix: 'Ask your developer to review and fix each item listed.',
+        humanReview: 'Recommended',
+      });
+    }
+  }
+
+  const policyRows: { key: string; label: string; url: string | null }[] = [
+    { key: 'privacy', label: 'Privacy notice', url: privacyPolicyUrl },
+    { key: 'terms', label: 'Terms', url: termsUrl },
+    { key: 'cookie', label: 'Cookie policy', url: cookiePolicyUrl },
+    { key: 'refund', label: 'Refund / cancellation policy', url: refundPolicyUrl },
+    { key: 'grievance', label: 'Grievance page', url: grievanceUrl },
+  ];
+  const foundRows = policyRows.filter((r) => r.url);
+  const missingRows = policyRows.filter((r) => !r.url);
+  findings.push({
+    findingId: 'FIND-CHECK-01B',
+    title: `Policy pages found: ${foundRows.length} of ${policyRows.length}`,
+    state: missingRows.length ? 'Needs manual review' : 'Detected',
+    checkStatus: privacyPolicyUrl ? (missingRows.length ? 'Needs manual review' : 'Looks OK') : 'Gap observed',
+    evidenceStatus: 'Observed',
+    category: 'Privacy Notice',
+    severity: privacyPolicyUrl ? 'Low' : 'High',
+    confidence: 'Medium',
+    url: privacyPolicyUrl || baseOrigin,
+    observedEvidence:
+      (foundRows.length ? `Found: ${foundRows.map((r) => `${r.label} (${r.url}, via ${policyFoundVia[r.key] || 'link'})`).join('; ')}. ` : '') +
+      (missingRows.length ? `Not found: ${missingRows.map((r) => r.label).join(', ')}.` : ''),
+    referenceCategory: 'Privacy Notice',
+    referenceId: CHECK_LEGAL_REFERENCES.PRIVACY_NOTICE_PROVISION.id,
+    whyItMatters: 'Visitors and regulators look for these pages first. A privacy notice is the most important; the others depend on what the business offers.',
+    suggestedFix: privacyPolicyUrl
+      ? 'Link every policy page from the website footer so visitors can find them from any page.'
+      : 'Publish a privacy notice and link it from the website footer and next to every form.',
+    limitation: 'Pages behind a login, or with unusual addresses not linked from the homepage or sitemap, may not be found. Refund and cookie pages are not needed by every business.',
+    humanReview: 'Recommended',
+  });
 
   // CHECK 4: Consent banner presence and symmetry
   const hasConsentBanner =
@@ -1064,7 +1259,7 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
     manualReviewItemsCount: manualReviewCount,
     notAssessableItemsCount: unassessableItems.length,
     isDemo: false,
-    scanMethod: 'Static HTML analysis',
+    scanMethod: psi.ok ? 'Headless browser analysis' : 'Static HTML analysis',
     preliminaryNotice:
       'This is a preliminary check of what is publicly visible on your website. It is not a full DPDP audit and does not confirm compliance.',
     assessmentSummary,
@@ -1076,7 +1271,9 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
       totalChecks: findings.length,
     },
     scopeAndTestingConditions: {
-      browserContext: 'Static HTML analysis (Cheerio DOM inspection, HTTP headers, robots.txt)',
+      browserContext: psi.ok
+        ? 'Checked with a real browser (Google Lighthouse, mobile, no consent given) plus static HTML analysis of up to 15 pages'
+        : 'Static HTML analysis (Cheerio DOM inspection, HTTP headers, robots.txt); real-browser check unavailable',
       geographicAssumption: 'Direct safe connection from server environment',
       initialConsentState: 'Pre-consent (no cookies or banners accepted)',
       scanDepth: crawledPagesContent.size,

@@ -5,6 +5,9 @@ import { runSafeWebsiteScan, validateTargetUrl } from '@/lib/scanner';
 import { saveReport, getReport } from '@/lib/storage';
 import { sendReportEmail } from '@/lib/email';
 
+// Allow time for the Google Lighthouse real-browser check
+export const maxDuration = 60;
+
 // Simple in-memory sliding window rate limiter per IP: max 5 requests per 60 seconds
 const ipRateLimitMap = new Map<string, number[]>();
 
