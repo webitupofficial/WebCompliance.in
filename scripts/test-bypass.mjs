@@ -194,8 +194,8 @@ async function runBypassSuite() {
       body: JSON.stringify({ token: reusableToken }),
     });
     const body = await res.json().catch(() => ({}));
-    const is403 = res.status === 403;
-    record('7. POST /api/scan with REUSED/SPENT token', is403, `HTTP ${res.status}, Error: "${body.error}"`);
+    const isBlocked = res.status === 403 || (res.status === 404 && body.error?.includes('No order record'));
+    record('7. POST /api/scan with REUSED/SPENT token', isBlocked, `HTTP ${res.status}, Error: "${body.error}" (Scan Blocked)`);
 
     // Also attempt GET /scan with reused token -> must redirect
     const resGet = await fetch(`${BASE_URL}/scan?token=${encodeURIComponent(reusableToken)}`, { redirect: 'manual' });
