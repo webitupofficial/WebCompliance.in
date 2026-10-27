@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyScanToken, hashToken } from '@/lib/tokens';
+import { findOrderByTokenHash, claimTokenAtomically, isTokenUsed, updateOrder } from '@/lib/orders';
 import { runSafeWebsiteScan, validateTargetUrl } from '@/lib/scanner';
-import { DEMO_REPORTS } from '@/lib/mock-reports';
 import { saveReport, getReport } from '@/lib/storage';
+import { sendReportEmail } from '@/lib/email';
+
+// Simple in-memory sliding window rate limiter per IP: max 5 requests per 60 seconds
+const ipRateLimitMap = new Map<string, number[]>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxRequests = 5;
+
+  const timestamps = (ipRateLimitMap.get(ip) || []).filter((t) => now - t < windowMs);
+  if (timestamps.length >= maxRequests) {
+    return false;
+  }
+  timestamps.push(now);
+  ipRateLimitMap.set(ip, timestamps);
+  return true;
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -11,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Assessment ID parameter is required' }, { status: 400 });
   }
 
-  const report = getReport(id);
+  const report = await getReport(id);
   if (!report) {
     return NextResponse.json({ error: 'Assessment report not found' }, { status: 404 });
   }
@@ -21,59 +40,164 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { websiteUrl, workEmail, consentGiven, isDemo, demoPreset } = body;
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown-ip';
 
-    if (!consentGiven) {
-      return NextResponse.json({
-        error: 'Consent is required to generate the assessment report and receive service details.'
-      }, { status: 400 });
+    if (!checkRateLimit(clientIp)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Too many scan attempts. Please wait a minute before retrying.' },
+        { status: 429 }
+      );
+    }
+    const authHeader = request.headers.get('authorization');
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
     }
 
-    if (!workEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(workEmail)) {
-      return NextResponse.json({
-        error: 'A valid work email address is required.'
-      }, { status: 400 });
+    let body: { token?: string } = {};
+    try {
+      body = await request.json();
+    } catch {
+      // Body might be empty if token is in header
     }
 
-    // Demo Mode Handling
-    if (isDemo || demoPreset || !websiteUrl || websiteUrl.includes('demo-')) {
-      const presetKey = demoPreset === 'ecommerce' ? 'demo-ecommerce' : 'demo-saas';
-      const demoReport = DEMO_REPORTS[presetKey];
-      // Clone and personalize if custom URL supplied
-      const personalizedReport = {
-        ...demoReport,
-        assessmentId: `WC-WEB-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        scanDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
-        targetDomain: websiteUrl ? new URL(validateTargetUrl(websiteUrl).normalized || 'https://demo-saas.in').hostname : demoReport.targetDomain,
-        website: websiteUrl ? (validateTargetUrl(websiteUrl).normalized || 'https://demo-saas.in') : demoReport.website,
-        isDemo: true
-      };
-
-      saveReport(personalizedReport);
-      return NextResponse.json({ success: true, report: personalizedReport });
+    if (!token && body.token) {
+      token = body.token.trim();
     }
 
-    // Live Scan Handling
-    const validation = validateTargetUrl(websiteUrl);
+    // 1. Independent Token Validation
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required. A valid, unspent scan token must be provided.' },
+        { status: 401 }
+      );
+    }
+
+    const payload = verifyScanToken(token);
+    if (!payload) {
+      return NextResponse.json(
+        { error: 'Invalid or expired scan token. Please purchase a website check at /website-check.' },
+        { status: 401 }
+      );
+    }
+
+    const tokenHashed = hashToken(token);
+    const order = await findOrderByTokenHash(tokenHashed);
+
+    if (!order) {
+      return NextResponse.json(
+        { error: 'No order record found for this token.' },
+        { status: 404 }
+      );
+    }
+
+    // Pre-check if already used
+    const alreadyUsed = order.token_used || (await isTokenUsed(tokenHashed));
+    if (alreadyUsed) {
+      return NextResponse.json(
+        { error: 'This scan token has already been used. Each token is single-use.' },
+        { status: 403 }
+      );
+    }
+
+    // 2. Scan ONLY the URL bound to the token (user cannot change URL after payment)
+    const targetUrl = payload.url;
+    const validation = await validateTargetUrl(targetUrl);
     if (!validation.valid || !validation.normalized) {
-      return NextResponse.json({ error: validation.error || 'Invalid target website URL.' }, { status: 400 });
+      return NextResponse.json(
+        { error: validation.error || 'Invalid target website URL bound to order.' },
+        { status: 400 }
+      );
+    }
+
+    // 3. Atomically claim token using SET ... NX to prevent parallel race conditions
+    const claimed = await claimTokenAtomically(tokenHashed);
+    if (!claimed) {
+      return NextResponse.json(
+        { error: 'This scan token has already been used. Each token is single-use.' },
+        { status: 403 }
+      );
     }
 
     try {
       const liveReport = await runSafeWebsiteScan(validation.normalized);
-      saveReport(liveReport);
-      return NextResponse.json({ success: true, report: liveReport });
-    } catch (scanErr: unknown) {
-      // In case of live network block, fallback safely to an honest report
+      await saveReport(liveReport);
+
+      // Link report ID to order
+      await updateOrder(order.order_id, {
+        report_id: liveReport.assessmentId,
+      });
+
+      // Dispatch transactional report email
+      const siteOrigin =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (request.headers.get('host')
+          ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('host')}`
+          : 'https://webcompliance.in');
+
+      const emailResult = await sendReportEmail({
+        recipientEmail: order.email,
+        targetUrl: liveReport.website,
+        reportId: liveReport.assessmentId,
+        reportUrl: `${siteOrigin}/report/${liveReport.assessmentId}`,
+        gapCount: liveReport.readinessIndicator.observableGapsCount,
+        totalChecks: liveReport.readinessIndicator.totalChecks,
+      });
+
       return NextResponse.json({
-        error: scanErr instanceof Error ? scanErr.message : 'Could not scan the target website due to network constraints or timeout.',
-        fallbackRecommendation: 'The website may block automated scanners or require authorization. Request an in-depth human assessment.'
-      }, { status: 502 });
+        success: true,
+        report: liveReport,
+        emailSent: emailResult.success,
+        emailWarning: !emailResult.success
+          ? 'We could not email your report. Please save this link.'
+          : undefined,
+      });
+    } catch (scanErr: unknown) {
+      console.error('Scan execution error:', scanErr);
+      const errMsg = scanErr instanceof Error ? scanErr.message : 'Unknown scan error';
+
+      // Mark order as refund_due if scan fails after payment
+      await updateOrder(order.order_id, {
+        status: 'refund_due',
+      });
+
+      // Alert Prem via Formspree (do not auto-refund)
+      const formId = process.env.NEXT_PUBLIC_FORMSPREE_ID || 'mbgggawa';
+      fetch(`https://formspree.io/f/${formId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          _subject: `ALERT: Scan failed (refund due) for Order ${order.order_id}`,
+          form_source: 'scan-failure-refund-due',
+          order_id: order.order_id,
+          website_url: order.url,
+          customer_email: order.email,
+          amount_inr: order.amount,
+          error_detail: errMsg,
+        }),
+      }).catch(() => {});
+
+      return NextResponse.json(
+        {
+          error:
+            'We were unable to complete the automated scan of your website. Your order has been marked for review and refund. Prem Singh has been alerted at prem.webcompliance@gmail.com and will contact you directly within one working day.',
+          status: 'refund_due',
+        },
+        { status: 502 }
+      );
     }
   } catch (err: unknown) {
-    return NextResponse.json({
-      error: 'Invalid request payload: ' + (err instanceof Error ? err.message : 'Unknown error')
-    }, { status: 400 });
+    return NextResponse.json(
+      {
+        error:
+          'Invalid scan request: ' +
+          (err instanceof Error ? err.message : 'Unknown error'),
+      },
+      { status: 400 }
+    );
   }
 }

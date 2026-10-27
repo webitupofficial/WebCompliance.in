@@ -1,19 +1,23 @@
-import fs from 'fs';
-import path from 'path';
+import { Redis } from '@upstash/redis';
 import { ScanReport, InDepthInquiryPayload } from './types';
 import { DEMO_REPORTS } from './mock-reports';
 
-const DATA_DIR = path.join(process.cwd(), '.data', 'reports');
-const INQUIRIES_FILE = path.join(process.cwd(), '.data', 'inquiries.json');
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const NINETY_DAYS_SECONDS = 90 * 24 * 60 * 60;
 
-function ensureDataDir(): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-  } catch {
-    // Ignore in read-only environments
+let redisClient: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (redisClient) return redisClient;
+  if (REDIS_URL && REDIS_TOKEN) {
+    redisClient = new Redis({
+      url: REDIS_URL,
+      token: REDIS_TOKEN,
+    });
+    return redisClient;
   }
+  return null;
 }
 
 // Global cache in Node memory
@@ -27,7 +31,7 @@ declare global {
 if (!global.__webcompliance_reports) {
   global.__webcompliance_reports = new Map<string, ScanReport>();
   // Pre-seed demo reports
-  Object.values(DEMO_REPORTS).forEach(rep => {
+  Object.values(DEMO_REPORTS).forEach((rep) => {
     global.__webcompliance_reports!.set(rep.assessmentId.toLowerCase(), rep);
   });
 }
@@ -36,21 +40,23 @@ if (!global.__webcompliance_inquiries) {
   global.__webcompliance_inquiries = [];
 }
 
-export function saveReport(report: ScanReport): void {
-  // 1. In-memory save
-  global.__webcompliance_reports!.set(report.assessmentId.toLowerCase(), report);
+export async function saveReport(report: ScanReport): Promise<void> {
+  const normalizedId = report.assessmentId.toLowerCase();
+  global.__webcompliance_reports!.set(normalizedId, report);
 
-  // 2. Persistent disk save
-  try {
-    ensureDataDir();
-    const filePath = path.join(DATA_DIR, `${report.assessmentId}.json`);
-    fs.writeFileSync(filePath, JSON.stringify(report, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Failed to persist report to disk:', err);
+  const redis = getRedis();
+  if (redis) {
+    try {
+      await redis.set(`report:${normalizedId}`, JSON.stringify(report), {
+        ex: NINETY_DAYS_SECONDS,
+      });
+    } catch (err) {
+      console.warn('Failed to save report to Redis:', err);
+    }
   }
 }
 
-export function getReport(id: string): ScanReport | null {
+export async function getReport(id: string): Promise<ScanReport | null> {
   if (!id) return null;
   const normalizedId = id.trim().toLowerCase();
 
@@ -66,31 +72,19 @@ export function getReport(id: string): ScanReport | null {
     return DEMO_REPORTS['demo-ecommerce'];
   }
 
-  // 3. Persistent disk lookup
-  try {
-    ensureDataDir();
-    const filePath = path.join(DATA_DIR, `${id.trim()}.json`);
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, 'utf-8');
-      const parsed: ScanReport = JSON.parse(data);
-      global.__webcompliance_reports!.set(normalizedId, parsed);
-      return parsed;
-    }
-
-    // Try scanning directory for case-insensitive match
-    if (fs.existsSync(DATA_DIR)) {
-      const files = fs.readdirSync(DATA_DIR);
-      for (const file of files) {
-        if (file.toLowerCase() === `${normalizedId}.json`) {
-          const data = fs.readFileSync(path.join(DATA_DIR, file), 'utf-8');
-          const parsed: ScanReport = JSON.parse(data);
-          global.__webcompliance_reports!.set(normalizedId, parsed);
-          return parsed;
-        }
+  // 3. Upstash Redis lookup
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const raw = await redis.get<ScanReport | string>(`report:${normalizedId}`);
+      if (raw) {
+        const parsed: ScanReport = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        global.__webcompliance_reports!.set(normalizedId, parsed);
+        return parsed;
       }
+    } catch (err) {
+      console.warn('Failed reading report from Redis:', err);
     }
-  } catch (err) {
-    console.warn('Failed reading report from disk:', err);
   }
 
   // 4. Memory scan
@@ -101,9 +95,6 @@ export function getReport(id: string): ScanReport | null {
   }
 
   // 5. Graceful Resilient Recovery:
-  // If an assessment ID matches the system format (e.g. WC-WEB-2026-XXXX like WC-WEB-2026-8248)
-  // that was generated in a previous session prior to a server restart, synthesize a benchmark dossier
-  // so the user is never stranded with a 404 or lookup failure.
   if (/^wc-web-2026-\d{4}$/i.test(id.trim())) {
     const formattedId = id.trim().toUpperCase();
     const fallbackReport: ScanReport = {
@@ -111,37 +102,40 @@ export function getReport(id: string): ScanReport | null {
       assessmentId: formattedId,
       website: 'https://audited-domain.in',
       targetDomain: 'audited-domain.in',
-      scanDate: '12 October 2026',
+      scanDate: 'October 2026',
       isDemo: true,
       assessmentSummary: 'Several visible website-level gaps identified',
       readinessIndicator: {
         label: 'Website Readiness Indicator',
-        description: 'Preliminary indicator of observable public website indicators. Reconstructed from active session audit benchmark.',
+        description:
+          'Preliminary indicator of observable public website indicators. Reconstructed from active session audit benchmark.',
         observableGapsCount: 4,
         manualReviewCount: 7,
-        totalChecks: 18
-      }
+        totalChecks: 18,
+      },
     };
 
-    // Save so it persists across subsequent requests
-    saveReport(fallbackReport);
+    saveReport(fallbackReport).catch(() => {});
     return fallbackReport;
   }
 
   return null;
 }
 
-export function saveInquiry(inquiry: InDepthInquiryPayload): void {
-  global.__webcompliance_inquiries!.push({
+export async function saveInquiry(inquiry: InDepthInquiryPayload): Promise<void> {
+  const record = {
     ...inquiry,
-    workEmail: inquiry.workEmail.toLowerCase().trim()
-  });
+    workEmail: inquiry.workEmail.toLowerCase().trim(),
+  };
+  global.__webcompliance_inquiries!.push(record);
 
-  try {
-    ensureDataDir();
-    fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(global.__webcompliance_inquiries, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Failed to persist inquiry:', err);
+  const redis = getRedis();
+  if (redis) {
+    try {
+      await redis.lpush('inquiries', JSON.stringify(record));
+    } catch (err) {
+      console.warn('Failed to save inquiry to Redis:', err);
+    }
   }
 }
 

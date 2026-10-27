@@ -10,7 +10,7 @@ interface ReportPageProps {
 
 export async function generateMetadata({ params }: ReportPageProps): Promise<Metadata> {
   const { id } = await params;
-  const report = getReport(id);
+  const report = await getReport(id);
   if (!report) {
     return {
       title: `Assessment Dossier: ${id} — WebCompliance.in`,
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
 
 export default async function ReportPage({ params }: ReportPageProps) {
   const { id } = await params;
-  const report = getReport(id);
+  const report = await getReport(id);
 
   return <ReportClientWrapper initialReport={report} assessmentId={id} />;
 }
