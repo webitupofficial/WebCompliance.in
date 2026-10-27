@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Save pending order in system storage
-    saveOrder({
+    await saveOrder({
       order_id: orderId,
       status: 'pending',
       url: url.trim(),

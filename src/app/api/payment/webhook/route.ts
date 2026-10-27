@@ -52,12 +52,16 @@ export async function POST(req: NextRequest) {
     const { event } = payload;
     const paymentEntity = payload.payload?.payment?.entity;
 
+    console.log(
+      `[Razorpay Webhook] Verified event: ${event}, Order ID: ${paymentEntity?.order_id || 'none'}`
+    );
+
     if (!paymentEntity || !paymentEntity.order_id) {
       // Return 200 to acknowledge webhook event even if not relevant
       return NextResponse.json({ status: 'ignored', reason: 'no payment entity' });
     }
 
-    const order = getOrder(paymentEntity.order_id);
+    const order = await getOrder(paymentEntity.order_id);
     if (!order) {
       return NextResponse.json({ status: 'ignored', reason: 'order not found' });
     }
@@ -83,7 +87,7 @@ export async function POST(req: NextRequest) {
         tokenHash = hashToken(token);
       }
 
-      updateOrder(order.order_id, {
+      await updateOrder(order.order_id, {
         payment_id: paymentEntity.id,
         status: 'captured',
         token_hash: tokenHash,
@@ -98,7 +102,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'ok', idempotent: true });
       }
 
-      updateOrder(order.order_id, {
+      await updateOrder(order.order_id, {
         payment_id: paymentEntity.id,
         status: 'failed',
       });

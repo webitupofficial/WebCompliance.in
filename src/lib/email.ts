@@ -17,9 +17,27 @@ export interface ReportEmailParams {
 export async function sendReportEmail(params: ReportEmailParams): Promise<{ success: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey) {
-    console.warn('RESEND_API_KEY not configured. Skipping transactional email.');
-    return { success: false, error: 'RESEND_API_KEY not configured' };
+  if (!apiKey || apiKey.startsWith('re_test_mock_')) {
+    console.warn('RESEND_API_KEY is not configured or is a mock key. Alerting Prem via Formspree.');
+    const formId = process.env.NEXT_PUBLIC_FORMSPREE_ID || 'mbgggawa';
+    fetch(`https://formspree.io/f/${formId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        _subject: `ALERT: Report email delivery not sent (no real RESEND_API_KEY) for ${params.reportId}`,
+        form_source: 'report-email-no-api-key',
+        report_id: params.reportId,
+        recipient_email: params.recipientEmail,
+        target_url: params.targetUrl,
+        report_url: params.reportUrl,
+        reason: 'Real RESEND_API_KEY not yet configured in environment',
+      }),
+    }).catch(() => {});
+
+    return {
+      success: false,
+      error: 'RESEND_API_KEY not configured. We could not email your report. Please save this link.',
+    };
   }
 
   try {

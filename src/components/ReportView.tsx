@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ScanReport, Finding, FindingCategory } from '@/lib/types';
 
 interface ReportViewProps {
@@ -22,6 +23,8 @@ const CATEGORY_ORDER: FindingCategory[] = [
 export default function ReportView({ report }: ReportViewProps) {
   const [copiedId, setCopiedId] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'gaps'>('all');
+  const searchParams = useSearchParams();
+  const emailFailed = searchParams?.get('email_delivery') === 'failed';
 
   const copyAssessmentId = () => {
     navigator.clipboard.writeText(report.assessmentId);
@@ -55,6 +58,27 @@ export default function ReportView({ report }: ReportViewProps) {
         <div style={{ fontSize: '18px', fontWeight: 800 }}>WebCompliance.in</div>
         <div style={{ fontSize: '12px', color: '#64748b' }}>Website Privacy Check • Preliminary Report</div>
       </div>
+
+      {/* Email Delivery Warning Banner */}
+      {emailFailed && (
+        <div
+          role="alert"
+          className="no-print"
+          style={{
+            background: '#fff1f2',
+            border: '1px solid #fecdd3',
+            borderLeft: '4px solid #e11d48',
+            borderRadius: '6px',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.5rem',
+            fontSize: '0.9375rem',
+            color: '#9f1239',
+            lineHeight: '1.5',
+          }}
+        >
+          <strong>Notice:</strong> We could not email your report. Please save this link or bookmark this page to access your assessment at any time.
+        </div>
+      )}
 
       {/* Main Report Header Card */}
       <div style={{ background: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', marginBottom: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>

@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const order = getOrder(order_id);
+    const order = await getOrder(order_id);
     if (!order) {
       return NextResponse.json(
         { error: 'Order not found in system records.' },
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     const tokenHashed = hashToken(token);
 
     // 5. Update order record to captured
-    updateOrder(order.order_id, {
+    await updateOrder(order.order_id, {
       payment_id,
       status: 'captured',
       token_hash: tokenHashed,

@@ -21,10 +21,9 @@ export default function WebsiteCheckPage() {
 
   // Price configuration from environment
   const rawPrice = process.env.NEXT_PUBLIC_CHECK_PRICE_INR;
-  const priceIncludesGst = process.env.NEXT_PUBLIC_PRICE_INCLUDES_GST === 'true';
   const hasPrice = Boolean(rawPrice && !isNaN(Number(rawPrice)) && Number(rawPrice) > 0);
   const priceDisplay = hasPrice
-    ? `₹${Number(rawPrice).toLocaleString('en-IN')}${priceIncludesGst ? ' incl. GST' : ''}`
+    ? `₹${Number(rawPrice).toLocaleString('en-IN')}`
     : null;
 
   const handleSubmit = async (e: React.FormEvent) => {

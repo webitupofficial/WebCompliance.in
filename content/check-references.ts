@@ -29,7 +29,7 @@ export const CHECK_LEGAL_REFERENCES: Record<string, LegalReference> = {
     id: 'REF-RIGHTS-01',
     category: 'Data Principal Rights',
     statutorySource: 'DPDP Act 2023 notice requirements and consent withdrawal mechanisms', // PREM TO VERIFY
-    description: 'Individuals must be informed of their rights to access, correction, erasure, grievance redressal, and withdrawal of consent.',
+    description: 'Individuals must be informed of their rights to access, correction, erasure, grievance redressal, withdrawal of consent, and the right to nominate another person.',
     guidanceNote: 'Detail the exact procedure for data principals to withdraw previously given consent or request personal data erasure.',
   },
   SCHEDULED_LANGUAGES: {
@@ -43,13 +43,13 @@ export const CHECK_LEGAL_REFERENCES: Record<string, LegalReference> = {
     id: 'REF-CONSENT-01',
     category: 'Consent & Trackers',
     statutorySource: 'Consent under the DPDP Act', // PREM TO VERIFY
-    description: 'Processing of personal data requires prior, free, informed, specific, and unambiguous consent with affirmative action.',
-    guidanceNote: 'Non-essential cookies, analytics beacons, and advertising pixels should not fire prior to explicit user choice.',
+    description: 'Where processing is based on consent, the consent must be free, specific, informed, unconditional and unambiguous, given by a clear affirmative action. Certain processing may instead rely on legitimate uses permitted under the Act.',
+    guidanceNote: 'As good practice, avoid loading non-essential cookies, analytics or advertising pixels before the visitor makes a choice.',
   },
   CONSENT_BANNER_SYMMETRY: {
     id: 'REF-BANNER-01',
     category: 'Consent Interface',
-    statutorySource: 'Consent under the DPDP Act', // PREM TO VERIFY
+    statutorySource: 'Good practice for valid consent under the DPDP Act', // PREM TO VERIFY
     description: 'Consent requests must avoid dark patterns or asymmetric prominence between accepting and declining options.',
     guidanceNote: 'Provide reject, accept, and preferences options with equal visual clarity and ease of access.',
   },
@@ -65,6 +65,6 @@ export const CHECK_LEGAL_REFERENCES: Record<string, LegalReference> = {
     category: 'Technical Safeguards',
     statutorySource: 'Reasonable security safeguards under Indian IT law and DPDP Act 2023', // PREM TO VERIFY
     description: 'Data fiduciaries must protect personal data in their possession or custody through reasonable security safeguards to prevent personal data breaches.',
-    guidanceNote: 'Enforce HTTPS everywhere, deploy modern security headers (HSTS, CSP, X-Content-Type-Options), and maintain security.txt.',
+    guidanceNote: 'Enforce HTTPS everywhere, deploy modern security headers (HSTS, CSP, X-Content-Type-Options), and maintain security.txt (security headers and security.txt are recommended good practice, not specific legal requirements).',
   },
 };
