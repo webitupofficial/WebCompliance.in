@@ -99,7 +99,10 @@ export async function POST(req: NextRequest) {
         (process.env.NEXT_PUBLIC_APP_URL?.includes('webcompliance.in') ||
           process.env.VERCEL_PROJECT_PRODUCTION_URL?.includes('webcompliance.in')));
 
-    if (isProductionEnv && keyId.startsWith('rzp_test_')) {
+    // Temporary override for owner testing on the live site with Razorpay test keys.
+    // Remove ALLOW_TEST_KEYS_IN_PRODUCTION from Vercel before switching to live keys.
+    const allowTestKeys = process.env.ALLOW_TEST_KEYS_IN_PRODUCTION === 'true';
+    if (isProductionEnv && keyId.startsWith('rzp_test_') && !allowTestKeys) {
       console.warn(
         'SECURITY ALERT: Checkout blocked because Production environment is running with Razorpay test keys.'
       );
