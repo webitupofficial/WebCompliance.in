@@ -225,6 +225,12 @@ function isDisallowedByRobots(pathname: string, disallowedList: string[]): boole
   return false;
 }
 
+/** Prefer the main policy page (shortest path), e.g. /privacy over /privacy/rights. */
+function pickShorter(current: string | null, candidate: string): string {
+  if (!current) return candidate;
+  return new URL(candidate).pathname.length < new URL(current).pathname.length ? candidate : current;
+}
+
 export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport> {
   const validation = await validateTargetUrl(targetUrl);
   if (!validation.valid || !validation.normalized) {
@@ -367,19 +373,19 @@ export async function runSafeWebsiteScan(targetUrl: string): Promise<ScanReport>
             text.includes('privacy') ||
             text.includes('data protection')
           ) {
-            privacyPolicyUrl = fullUrl.toString();
+            privacyPolicyUrl = pickShorter(privacyPolicyUrl, fullUrl.toString());
           }
           if (pathname.includes('terms') || text.includes('terms') || text.includes('conditions')) {
-            termsUrl = fullUrl.toString();
+            termsUrl = pickShorter(termsUrl, fullUrl.toString());
           }
           if (pathname.includes('cookie') || text.includes('cookie')) {
-            cookiePolicyUrl = fullUrl.toString();
+            cookiePolicyUrl = pickShorter(cookiePolicyUrl, fullUrl.toString());
           }
           if (/refund|cancellation|return/.test(pathname) || /refund|cancellation/.test(text)) {
-            refundPolicyUrl = fullUrl.toString();
+            refundPolicyUrl = pickShorter(refundPolicyUrl, fullUrl.toString());
           }
           if (/grievance/.test(pathname) || /grievance/.test(text)) {
-            grievanceUrl = fullUrl.toString();
+            grievanceUrl = pickShorter(grievanceUrl, fullUrl.toString());
           }
 
           // Gather prioritized candidates: privacy, contact, signup, login, terms, cookie

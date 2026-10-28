@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
   const report = await getReport(id);
   if (!report) {
     return {
-      title: `Assessment Dossier: ${id} — WebCompliance.in`,
+      title: `Website privacy check: ${id} — WebCompliance.in`,
       description: 'Website DPDP readiness assessment dossier.',
       robots: {
         index: false,
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
     };
   }
   return {
-    title: `Assessment Dossier: ${report.targetDomain} (${report.assessmentId}) — WebCompliance.in`,
+    title: `Website privacy check: ${report.targetDomain} (${report.assessmentId}) — WebCompliance.in`,
     description: `Website DPDP readiness assessment for ${report.targetDomain}. Inspected ${report.pagesChecked} pages, ${report.formsDetectedCount} forms, and ${report.thirdPartyServicesCount} third-party scripts.`,
     robots: {
       index: false,
