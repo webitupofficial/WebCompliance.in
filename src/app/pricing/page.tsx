@@ -41,7 +41,7 @@ export default function PricingPage() {
               Website Privacy Check
             </h2>
             <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '1rem 0', color: 'var(--color-primary)' }}>
-              Paid Entry Product
+              Free
             </div>
             <p style={{ fontSize: '0.8125rem', color: '#4B5563', marginBottom: '1.5rem', lineHeight: '1.5' }}>
               Automated assessment of public notices, forms, trackers, cookies, and technical hygiene indicators.
@@ -72,7 +72,7 @@ export default function PricingPage() {
           </div>
 
           <Link href="/website-check" className="btn btn-primary" style={{ width: '100%' }}>
-            Check Website Privacy →
+            Run a free check →
           </Link>
         </div>
 

@@ -34,7 +34,7 @@ export default async function ScanPage({ searchParams }: ScanPageProps) {
   const tokenHashed = hashToken(token);
   const order = await findOrderByTokenHash(tokenHashed);
 
-  // If order not found or token has already been spent, redirect back to payment page
+  // If order not found or token has already been spent, redirect back to the check page
   if (!order || order.token_used) {
     redirect('/website-check');
   }

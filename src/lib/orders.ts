@@ -3,7 +3,7 @@ import { Redis } from '@upstash/redis';
 export interface OrderRecord {
   order_id: string;
   payment_id?: string;
-  status: 'pending' | 'captured' | 'failed' | 'refund_due';
+  status: 'pending' | 'captured' | 'failed' | 'refund_due' | 'free';
   url: string;
   email: string;
   company?: string;
@@ -213,4 +213,35 @@ export async function claimTokenAtomically(tokenHash: string): Promise<boolean> 
  */
 export async function markTokenUsed(tokenHash: string): Promise<boolean> {
   return claimTokenAtomically(tokenHash);
+}
+
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __webcompliance_free_limits_mem: Map<string, { count: number; resetAt: number }> | undefined;
+}
+
+/**
+ * Counts a free check against a key (e.g. email or IP) and returns true if still within the limit.
+ * Uses Redis INCR with a TTL so the limit is shared across all servers.
+ */
+export async function consumeFreeCheckQuota(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+  const redis = getRedis();
+  const redisKey = `free:limit:${key}`;
+  if (redis) {
+    const count = await redis.incr(redisKey);
+    if (count === 1) {
+      await redis.expire(redisKey, windowSeconds);
+    }
+    return count <= limit;
+  }
+  if (!global.__webcompliance_free_limits_mem) global.__webcompliance_free_limits_mem = new Map();
+  const now = Date.now();
+  const entry = global.__webcompliance_free_limits_mem.get(redisKey);
+  if (!entry || entry.resetAt < now) {
+    global.__webcompliance_free_limits_mem.set(redisKey, { count: 1, resetAt: now + windowSeconds * 1000 });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= limit;
 }

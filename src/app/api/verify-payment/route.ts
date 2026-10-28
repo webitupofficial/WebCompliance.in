@@ -35,6 +35,11 @@ async function sendOrderAlert(params: {
 }
 
 export async function POST(req: NextRequest) {
+  // Payments are switched off: the website check is free. Remove this line to re-enable.
+  if (process.env.PAYMENTS_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'Payments are disabled. The website check is free.' }, { status: 410 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     // Support both snake_case and camelCase parameters

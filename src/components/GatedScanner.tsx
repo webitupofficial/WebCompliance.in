@@ -91,7 +91,7 @@ export default function GatedScanner({ token, targetUrl, email, company }: Gated
         }}
       >
         <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-          Verified Order Target
+          Website being checked
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
           <div>

@@ -1,15 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Script from 'next/script';
 import Link from 'next/link';
-
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Razorpay: any;
-  }
-}
 
 export default function WebsiteCheckPage() {
   const [url, setUrl] = useState('');
@@ -19,12 +11,7 @@ export default function WebsiteCheckPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Price configuration from environment
-  const rawPrice = process.env.NEXT_PUBLIC_CHECK_PRICE_INR;
-  const hasPrice = Boolean(rawPrice && !isNaN(Number(rawPrice)) && Number(rawPrice) > 0);
-  const priceDisplay = hasPrice
-    ? `₹${Number(rawPrice).toLocaleString('en-IN')}`
-    : null;
+  const [hpWebsite, setHpWebsite] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,121 +60,33 @@ export default function WebsiteCheckPage() {
       return;
     }
 
-    if (!hasPrice) {
-      setErrorMessage('Pricing is currently being scheduled. Please contact prem.webcompliance@gmail.com.');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
-      // 1. Create order on server using /api/create-order
-      const res = await fetch('/api/create-order', {
+      const res = await fetch('/api/free-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: parsedUrl.origin,
           email: email.trim(),
           company: company.trim(),
+          consent: authorizedConsent,
+          hp_website: hpWebsite,
         }),
       });
-
-      const orderData = await res.json();
-      const orderId = orderData.order_id || orderData.orderId;
-      if (!res.ok || !orderId) {
-        throw new Error(orderData.error || 'Failed to initialize payment order.');
+      const data = await res.json();
+      if (!res.ok || !data.scanUrl) {
+        throw new Error(data.error || 'Could not start the check. Please try again.');
       }
-
-      // 2. Open Razorpay Checkout modal
-      if (typeof window.Razorpay === 'undefined') {
-        throw new Error('Payment gateway is loading. Please try again in a few seconds.');
-      }
-
-      const clientKey =
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || orderData.key_id || orderData.keyId;
-
-      const options = {
-        key: clientKey,
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
-        name: 'WebCompliance.in',
-        description: 'Website Privacy Check',
-        order_id: orderId,
-        prefill: {
-          email: email.trim(),
-        },
-        theme: {
-          color: '#1e3a8a',
-        },
-        handler: async function (response: {
-          razorpay_payment_id: string;
-          razorpay_order_id: string;
-          razorpay_signature: string;
-        }) {
-          try {
-            // 3. Verify payment on server using /api/verify-payment and retrieve access token
-            const verifyRes = await fetch('/api/verify-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                order_id: response.razorpay_order_id,
-                payment_id: response.razorpay_payment_id,
-                signature: response.razorpay_signature,
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-            if (!verifyRes.ok || !verifyData.token) {
-              throw new Error(
-                verifyData.error ||
-                  'Payment verification failed. Please contact prem.webcompliance@gmail.com.'
-              );
-            }
-
-            // 4. Redirect to gated scan page
-            window.location.href = `/scan?token=${encodeURIComponent(verifyData.token)}`;
-          } catch (verifyErr: unknown) {
-            const msg =
-              verifyErr instanceof Error ? verifyErr.message : 'Verification error occurred';
-            setErrorMessage(msg);
-            setIsLoading(false);
-          }
-        },
-        modal: {
-          ondismiss: function () {
-            setIsLoading(false);
-            setErrorMessage('Payment cancelled. You have not been charged.');
-          },
-        },
-      };
-
-      const rzpInstance = new window.Razorpay(options);
-
-      // Handle payment.failed event with clear message
-      if (typeof rzpInstance.on === 'function') {
-        rzpInstance.on(
-          'payment.failed',
-          function (response: { error?: { description?: string } }) {
-            setIsLoading(false);
-            const failureReason =
-              response.error?.description ||
-              'Payment failed or was declined by your bank. You have not been charged.';
-            setErrorMessage(`${failureReason} Please try again.`);
-          }
-        );
-      }
-
-      rzpInstance.open();
+      window.location.href = data.scanUrl;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setErrorMessage(msg);
+      setErrorMessage(err instanceof Error ? err.message : 'An unexpected error occurred');
       setIsLoading(false);
     }
   };
 
   return (
     <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
 
       <main className="section" style={{ paddingTop: '3.5rem', paddingBottom: '4.5rem' }}>
         <div className="container" style={{ maxWidth: '960px' }}>
@@ -259,14 +158,14 @@ export default function WebsiteCheckPage() {
               </div>
             </div>
 
-            {/* Request & Payment Form */}
+            {/* Request form */}
             <div style={{ background: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ marginBottom: '1.25rem' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text-main)', marginBottom: '0.25rem' }}>
                   Request a website check
                 </h2>
                 <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', margin: 0 }}>
-                  Enter your details below. Your scan runs immediately after payment.
+                  Enter your details below. Your check starts straight away.
                 </p>
               </div>
 
@@ -358,6 +257,17 @@ export default function WebsiteCheckPage() {
                   />
                 </div>
 
+                <input
+                  type="text"
+                  name="hp_website"
+                  value={hpWebsite}
+                  onChange={(e) => setHpWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', opacity: 0 }}
+                />
+
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem', fontSize: '0.8125rem', color: '#334155', cursor: 'pointer', lineHeight: '1.4' }}>
                     <input
@@ -372,52 +282,41 @@ export default function WebsiteCheckPage() {
                       <Link href="/legal/terms" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
                         Terms
                       </Link>
-                      ,{' '}
+                      {' '}and{' '}
                       <Link href="/legal/privacy" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
                         Privacy Notice
                       </Link>
-                      ,{' '}
-                      <Link href="/legal/refunds" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
-                        Refund Policy
-                      </Link>
-                      , and{' '}
-                      <Link href="/legal/delivery" target="_blank" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
-                        Delivery Policy
-                      </Link>.
+                      .
                     </span>
                   </label>
                 </div>
 
                 <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Price per check:</span>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Price:</span>
                     <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-main)' }}>
-                      {priceDisplay || 'Pricing coming soon'}
+                      Free
                     </span>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={!hasPrice || isLoading}
+                    disabled={isLoading}
                     className="btn btn-primary"
                     style={{
                       width: '100%',
                       padding: '0.875rem 1.25rem',
                       fontSize: '1rem',
                       fontWeight: 700,
-                      opacity: !hasPrice || isLoading ? 0.6 : 1,
-                      cursor: !hasPrice || isLoading ? 'not-allowed' : 'pointer',
+                      opacity: isLoading ? 0.6 : 1,
+                      cursor: isLoading ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    {isLoading
-                      ? 'Processing...'
-                      : hasPrice
-                      ? `Pay ${priceDisplay}`
-                      : 'Pricing coming soon'}
+                    {isLoading ? 'Starting your check...' : 'Run free website check'}
                   </button>
 
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.75rem', lineHeight: '1.4' }}>
-                    Single-use digital check • Immediate report generation • Secured via Razorpay
+                    One free check per email per day • Report on screen in about a minute
                   </div>
                 </div>
               </form>
