@@ -232,7 +232,7 @@ export default function WebsiteCheckPage() {
                     }}
                   />
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                    We send your report link and receipt here.
+                    Used to link your report and to allow one free check per day.
                   </div>
                 </div>
 

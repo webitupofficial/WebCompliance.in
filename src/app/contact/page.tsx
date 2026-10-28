@@ -131,7 +131,7 @@ export default function ContactPage() {
                   <p style={{ margin: 0, color: '#374151' }}>
                     <strong>Data Collected:</strong> Name, Corporate Email, Organization, Message.<br />
                     <strong>Purpose:</strong> Responding directly to your inquiry regarding WebCompliance services or assessments.<br />
-                    <strong>Rights & Erasure:</strong> Withdraw consent or request record erasure at any time via our <a href="/rights" target="_blank" style={{ color: 'var(--color-cobalt)', textDecoration: 'underline', fontWeight: 700 }}>Data Principal Rights Portal</a> or by emailing <a href="mailto:grievance@webcompliance.in" style={{ color: 'var(--color-cobalt)' }}>grievance@webcompliance.in</a>.
+                    <strong>Rights & Erasure:</strong> Withdraw consent or request record erasure at any time via our <a href="/rights" target="_blank" style={{ color: 'var(--color-cobalt)', textDecoration: 'underline', fontWeight: 700 }}>Data Principal Rights Portal</a> or by emailing <a href="mailto:prem.webcompliance@gmail.com" style={{ color: 'var(--color-cobalt)' }}>prem.webcompliance@gmail.com</a>.
                   </p>
                 </div>
 
@@ -171,7 +171,7 @@ export default function ContactPage() {
 
             <div style={{ marginBottom: '1.25rem' }}>
               <div className="font-mono" style={{ fontSize: '0.7rem', color: 'var(--color-slate)' }}>GRIEVANCE & PRIVACY DESK:</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-acid)' }}>grievance@webcompliance.in</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-acid)' }}>prem.webcompliance@gmail.com</div>
             </div>
 
             <div>

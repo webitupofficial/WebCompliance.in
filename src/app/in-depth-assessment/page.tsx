@@ -204,7 +204,7 @@ export default function InDepthAssessmentPage() {
                   <p style={{ margin: 0, color: '#374151' }}>
                     <strong>Data Collected:</strong> Name, Corporate Work Email, Organization Name, Sector, and Scope Notes.<br />
                     <strong>Purpose:</strong> Preliminary qualification and direct consultation regarding human-led compliance assessments under mutual Non-Disclosure Agreement (NDA).<br />
-                    <strong>Rights & Officer:</strong> Manage or erase inquiry data via our <a href="/rights" target="_blank" style={{ color: 'var(--color-cobalt)', textDecoration: 'underline', fontWeight: 700 }}>Data Principal Rights Portal</a> or contact <a href="mailto:grievance@webcompliance.in" style={{ color: 'var(--color-cobalt)' }}>grievance@webcompliance.in</a>.
+                    <strong>Rights & Officer:</strong> Manage or erase inquiry data via our <a href="/rights" target="_blank" style={{ color: 'var(--color-cobalt)', textDecoration: 'underline', fontWeight: 700 }}>Data Principal Rights Portal</a> or contact <a href="mailto:prem.webcompliance@gmail.com" style={{ color: 'var(--color-cobalt)' }}>prem.webcompliance@gmail.com</a>.
                   </p>
                 </div>
 

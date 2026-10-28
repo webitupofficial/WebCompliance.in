@@ -55,13 +55,39 @@ export async function POST(request: NextRequest) {
 
     global.__webcompliance_rights_requests!.push(record);
 
+    // Forward the request to Prem by email (via Formspree) so it is never lost
+    const formId = process.env.NEXT_PUBLIC_FORMSPREE_ID || 'mbgggawa';
+    const fwd = await fetch(`https://formspree.io/f/${formId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        _subject: `Data Principal request (${record.requestType}): ${requestId}`,
+        _replyto: record.email,
+        form_source: 'rights-request',
+        request_id: requestId,
+        request_type: record.requestType,
+        full_name: record.fullName,
+        email: record.email,
+        phone: record.phone || '',
+        details: record.details,
+        associated_websites: record.associatedDomains || '',
+        nominee_details: record.nomineeDetails || '',
+      }),
+    }).catch(() => null);
+    if (!fwd || !fwd.ok) {
+      return NextResponse.json(
+        { error: 'We could not submit your request right now. Please email prem.webcompliance@gmail.com directly.' },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       requestId,
-      message: `Your statutory Data Principal request has been logged under Request ID: ${requestId}. Our designated Grievance Redressal Officer will review and respond within statutory DPDP turnaround timelines.`,
+      message: `Your statutory Data Principal request has been logged under Request ID: ${requestId}. We will reply by email as soon as possible and within the time limits set by law.`,
       grievanceOfficerContact: {
-        title: 'Data Protection & Grievance Redressal Officer',
-        email: 'grievance@webcompliance.in',
+        title: 'Grievance contact (Prem Singh)',
+        email: 'prem.webcompliance@gmail.com',
         statutoryAuthority: 'Data Protection Board of India (DPBI) escalation available'
       }
     });

@@ -252,7 +252,7 @@ export default function DataPrincipalRightsPage() {
 
             <div style={{ background: '#111317', border: '1px solid #2D313A', padding: '1rem', fontSize: '0.8125rem', color: '#E5E7EB', marginBottom: '1rem' }}>
               <div><strong>Designation:</strong> Data Protection &amp; Grievance Officer</div>
-              <div><strong>Official Email:</strong> <a href="mailto:grievance@webcompliance.in" style={{ color: 'var(--color-electric)' }}>grievance@webcompliance.in</a></div>
+              <div><strong>Official Email:</strong> <a href="mailto:prem.webcompliance@gmail.com" style={{ color: 'var(--color-electric)' }}>prem.webcompliance@gmail.com</a></div>
               <div><strong>Office Address:</strong> WebCompliance.in Compliance Operations, Cyber City, Gurugram, Haryana / Bangalore, India</div>
               <div><strong>Turnaround SLA:</strong> Acknowledged within 24 hours; resolved within statutory DPDP timelines.</div>
             </div>

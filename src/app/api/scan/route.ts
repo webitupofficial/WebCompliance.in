@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
-          _subject: `ALERT: Scan failed (refund due) for Order ${order.order_id}`,
+          _subject: `ALERT: Website check failed for ${order.order_id}`,
           form_source: 'scan-failure-refund-due',
           order_id: order.order_id,
           website_url: order.url,

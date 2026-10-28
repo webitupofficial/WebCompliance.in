@@ -4,7 +4,8 @@ import { DEMO_REPORTS } from './mock-reports';
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-const NINETY_DAYS_SECONDS = 90 * 24 * 60 * 60;
+// Retention: 30 days, then Redis deletes the record automatically
+const NINETY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
 let redisClient: Redis | null = null;
 

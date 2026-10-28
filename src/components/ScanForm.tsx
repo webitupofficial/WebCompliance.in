@@ -227,12 +227,12 @@ export default function ScanForm({ initialUrl = '', onScanComplete, compact = fa
             <div style={{ background: '#FAF8F2', border: '1px solid #000', padding: '0.85rem', marginBottom: '1.25rem', fontSize: '0.75rem', lineHeight: '1.5' }}>
               <div className="font-mono uppercase tracking-wider" style={{ fontWeight: 800, color: 'var(--color-cobalt)', marginBottom: '0.25rem', display: 'flex', justifyContent: 'space-between' }}>
                 <span>DPDP SECTION 5 // JUST-IN-TIME COLLECTION NOTICE</span>
-                <span>RETENTION: 90 DAYS</span>
+                <span>RETENTION: 30 DAYS</span>
               </div>
               <p style={{ margin: 0, color: '#374151' }}>
                 <strong>Data Collected:</strong> Target Website URL, Corporate Work Email, and optional Company Name.<br />
                 <strong>Specific Purpose:</strong> Automated execution of the public website scan and delivery of the assessment dossier.<br />
-                <strong>Withdrawal & Rights:</strong> You may withdraw consent or request permanent record erasure at any time through our <a href="/rights" target="_blank" style={{ color: 'var(--color-cobalt)', textDecoration: 'underline', fontWeight: 700 }}>Data Principal Rights Portal</a> or by contacting <a href="mailto:grievance@webcompliance.in" style={{ color: 'var(--color-cobalt)' }}>grievance@webcompliance.in</a>.
+                <strong>Withdrawal & Rights:</strong> You may withdraw consent or request permanent record erasure at any time through our <a href="/rights" target="_blank" style={{ color: 'var(--color-cobalt)', textDecoration: 'underline', fontWeight: 700 }}>Data Principal Rights Portal</a> or by contacting <a href="mailto:prem.webcompliance@gmail.com" style={{ color: 'var(--color-cobalt)' }}>prem.webcompliance@gmail.com</a>.
               </p>
             </div>
 

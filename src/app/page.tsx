@@ -828,10 +828,10 @@ export default function HomePage() {
                     Grievance Officer Contact
                   </div>
                   <a
-                    href="mailto:grievance@webcompliance.in"
+                    href="mailto:prem.webcompliance@gmail.com"
                     style={{ fontSize: '0.875rem', color: 'var(--color-primary)', textDecoration: 'underline' }}
                   >
-                    grievance@webcompliance.in
+                    prem.webcompliance@gmail.com
                   </a>
                 </div>
               </div>

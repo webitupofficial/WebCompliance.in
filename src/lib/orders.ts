@@ -15,8 +15,8 @@ export interface OrderRecord {
   currency: string;
 }
 
-// 90-day TTL in seconds: 90 days * 24h * 60m * 60s = 7,776,000
-const NINETY_DAYS_SECONDS = 90 * 24 * 60 * 60;
+// Retention: 30 days, then Redis deletes the record automatically
+const NINETY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
 const REDIS_URL =
   process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
@@ -54,13 +54,13 @@ if (!global.__webcompliance_tokens_used_mem) {
 
 /**
  * Saves or updates an order.
- * Stores in Upstash Redis with a 90-day TTL to satisfy DPDP Act retention requirements.
+ * Stores in Upstash Redis with a 30-day TTL.
  */
 export async function saveOrder(order: OrderRecord): Promise<void> {
   const redis = getRedis();
 
   if (redis) {
-    // Save order record with 90-day retention TTL
+    // Save order record with 30-day retention TTL
     await redis.set(`order:${order.order_id}`, JSON.stringify(order), {
       ex: NINETY_DAYS_SECONDS,
     });

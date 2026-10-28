@@ -82,7 +82,7 @@ export async function sendReportEmail(params: ReportEmailParams): Promise<{ succ
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <div style="font-size: 12px; color: #94a3b8; line-height: 1.5;">
           WebCompliance.in • Offline DPDP Act Gap Audits &amp; Website Reviews<br />
-          Prem Singh • Contact: prem.webcompliance@gmail.com • Grievance: grievance@webcompliance.in
+          Prem Singh • Contact: prem.webcompliance@gmail.com • Grievance: prem.webcompliance@gmail.com
         </div>
       </div>
     `;
